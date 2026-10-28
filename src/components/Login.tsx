@@ -14,7 +14,7 @@ export default function Login() {
   }
   return (
     <form className="card login" onSubmit={signIn}>
-      <h1>OFFORTT TECHNOLOGIES</h1>
+      <h1>OFORTT TECHNOLOGIES</h1>
       <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
       <label>Password<input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
       <button className="primary">Sign in</button>
