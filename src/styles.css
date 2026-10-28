@@ -1,0 +1,17 @@
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:#f4f6f8;color:#1c2430}
+header{display:flex;gap:10px;align-items:center;padding:10px 14px;background:#fff;border-bottom:1px solid #dde2e8;flex-wrap:wrap}
+header .link{margin-left:auto}main{padding:12px 12px 80px;max-width:900px;margin:auto}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid #dde2e8}
+nav button{flex:1;padding:14px;border:0;background:none;font-size:15px}nav .on{color:#1f3a5f;font-weight:700;border-top:3px solid #1f3a5f}
+.card{background:#fff;border:1px solid #dde2e8;border-radius:10px;padding:12px;margin:10px 0;display:grid;gap:8px}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between}.bar{display:flex;gap:8px;flex-wrap:wrap}.bar input{flex:1;min-width:140px}
+input,select,button{font:inherit;padding:9px;border:1px solid #c5ccd6;border-radius:8px;background:#fff}
+label{display:grid;gap:4px;font-size:13px;color:#4a5668}
+button.primary{background:#1f3a5f;color:#fff;border-color:#1f3a5f}button.link{border:0;background:none;color:#1f3a5f;padding:4px}
+.muted{color:#6b7788;font-size:13px}.msg{background:#fff3cd;padding:8px;border-radius:8px}.empty,.pad{padding:24px;text-align:center;color:#6b7788}
+.pill{font-size:12px;padding:2px 8px;border-radius:99px;background:#e8edf3}.pill.Urgent{background:#f8d7da}.pill.High{background:#ffe5cc}
+.login{max-width:360px;margin:12vh auto;padding:20px}.modal{position:fixed;inset:0;background:#0006;overflow:auto;padding:12px}.modal .card{max-width:440px;margin:auto}
+.conn{font-size:12px}.conn.live{color:#1a8a4a}.conn.reconnecting,.conn.connecting{color:#c98a00}.conn.offline{color:#c0392b}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.stat{background:#fff;border:1px solid #dde2e8;border-radius:10px;padding:12px}.stat b{font-size:22px;display:block}
+.kanban{display:flex;gap:10px;overflow-x:auto;align-items:flex-start}.col{min-width:230px;flex:0 0 230px}.col h4{margin:6px 0}
+nav button{font-size:13px;padding:12px 4px}
