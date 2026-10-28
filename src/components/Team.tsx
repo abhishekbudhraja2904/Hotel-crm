@@ -7,7 +7,7 @@ export default function Team() {
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value })
   async function add(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setMsg('')
-    const { data: res, error } = await supabase.functions.invoke('create-employee', { body: f })
+    const { data: res, error } = await supabase.functions.invoke('hyper-worker', { body: f })
     setBusy(false)
     if (error || res?.error) return setMsg(res?.error || error!.message)
     setF({ name: '', email: '', password: '', role: 'sales' }); qc.invalidateQueries({ queryKey: ['employees'] }); setMsg('Employee added. Share their email and password with them.')
