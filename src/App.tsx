@@ -20,7 +20,7 @@ function Shell({ session }: { session: any }) {
   if (!me || !me.active) return <div className="card login"><p>Your account isn't linked to an active employee profile. Ask the administrator.</p><button onClick={() => supabase.auth.signOut()}>Sign out</button></div>
   return (
     <>
-      <header><b>Access CRM</b><span className={`conn ${conn}`}>● {conn}</span><span className="muted">{me.employee_name} ({me.role})</span>
+      <header><b>OFORTT TECHNOLOGIES</b><span className={`conn ${conn}`}>● {conn}</span><span className="muted">{me.employee_name} ({me.role})</span>
         <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button></header>
       <main>{tab === 'dash' ? <Dashboard /> : tab === 'inq' ? <Inquiries me={me} /> : tab === 'pipe' ? <Pipeline /> : tab === 'fu' ? <Followups me={me} /> : <Team />}</main>
       <nav>{([['dash','Dashboard'],['inq','Inquiries'],['pipe','Pipeline'],['fu','Follow-ups'],...(me.role === 'admin' ? [['team','Team']] : [])] as string[][]).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k as any)}>{l}</button>)}</nav>
