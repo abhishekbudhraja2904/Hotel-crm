@@ -7,7 +7,7 @@ export function useRealtime() {
   const [state, setState] = useState<'connecting' | 'live' | 'reconnecting' | 'offline'>('connecting')
   useEffect(() => {
     const ch = supabase.channel('crm-changes')
-    for (const t of ['inquiries', 'followups', 'customers', 'inquiry_items', 'activity_log'])
+    for (const t of ['inquiries', 'followups', 'customers', 'inquiry_items', 'activity_log', 'attendance', 'inventory', 'stock_movements'])
       ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => qc.invalidateQueries({ queryKey: [t] }))
     ch.subscribe((s) => setState(s === 'SUBSCRIBED' ? 'live' : s === 'CLOSED' ? 'offline' : 'reconnecting'))
     return () => { supabase.removeChannel(ch) }

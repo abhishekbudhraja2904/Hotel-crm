@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-export const STAGES = ['New Inquiry','Qualified','Technical Discussion','Quotation Preparation','Quotation Sent','Negotiation','Order Confirmed','Lost','On Hold']
-const CATS = ['RFID Hotel Locks','Electronic Door Locks','RFID Cards','Access Control','Sensor-Based Entry','Automatic Sliding Doors','Hotel Lock Software','Accessories','Other']
+import { useSettings } from '../lib/settings'
 
 export default function Inquiries({ me }: { me: any }) {
   const qc = useQueryClient()
+  const { stages: STAGES } = useSettings()
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true)).data ?? [] })
   const [emp, setEmp] = useState('')
@@ -64,7 +64,7 @@ export default function Inquiries({ me }: { me: any }) {
           <div className="muted">{r.inquiry_items?.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || r.inquiry_title || 'No product yet'}</div>
           <div className="muted">Assigned: {r.assigned?.employee_name ?? 'Unassigned'} · Next follow-up: {r.next_followup_at ? new Date(r.next_followup_at).toLocaleString() : '—'}</div>
           <div className="row">
-            <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{STAGES.map((s) => <option key={s}>{s}</option>)}</select>
+            <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
             {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button></>}
           </div>
         </div>
@@ -76,7 +76,10 @@ export default function Inquiries({ me }: { me: any }) {
 
 function NewInquiry({ me, emps, onClose }: { me: any; emps: any[]; onClose: () => void }) {
   const qc = useQueryClient()
-  const [f, setF] = useState({ name: '', phone: '', title: '', cat: CATS[0], qty: '', priority: 'Medium', source: 'Phone Call', assign: me.id })
+  const { categories: CATS, sources: SRC } = useSettings()
+  const [f, setF] = useState({ name: '', phone: '', title: '', cat: '', prod: '', qty: '', priority: 'Medium', source: '', assign: me.id })
+  const cat = f.cat || CATS[0], source = f.source || SRC[0]
+  const { data: prods = [] } = useQuery({ queryKey: ['products'], queryFn: async () => (await supabase.from('products').select('id,product_name,unit').eq('active', true).order('product_name')).data ?? [] })
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false)
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value })
   async function save(e: React.FormEvent) {
@@ -84,9 +87,9 @@ function NewInquiry({ me, emps, onClose }: { me: any; emps: any[]; onClose: () =
     try {
       const c = await supabase.from('customers').insert({ customer_name: f.name, phone_number: f.phone || null, created_by: me.id }).select('id').single()
       if (c.error) throw c.error
-      const i = await supabase.from('inquiries').insert({ customer_id: c.data.id, inquiry_title: f.title || null, priority: f.priority, inquiry_source: f.source, assigned_to: f.assign || me.id }).select('id').single()
+      const i = await supabase.from('inquiries').insert({ customer_id: c.data.id, inquiry_title: f.title || null, priority: f.priority, inquiry_source: source, assigned_to: f.assign || me.id }).select('id').single()
       if (i.error) throw i.error
-      const it = await supabase.from('inquiry_items').insert({ inquiry_id: i.data.id, product_name_snapshot: f.cat, quantity: f.qty ? Number(f.qty) : null })
+      const it = await supabase.from('inquiry_items').insert({ inquiry_id: i.data.id, product_id: prods.find((x: any) => x.id === f.prod)?.id ?? null, product_name_snapshot: prods.find((x: any) => x.id === f.prod)?.product_name ?? cat, unit: prods.find((x: any) => x.id === f.prod)?.unit ?? null, quantity: f.qty ? Number(f.qty) : null })
       if (it.error) throw it.error
       const fu = await supabase.from('followups').insert({ inquiry_id: i.data.id, assigned_to: f.assign || me.id, followup_type: 'Phone Call', scheduled_at: new Date(Date.now() + 36e5).toISOString(), source_rule: 'first_contact', notes: 'First contact', created_by: me.id })
       if (fu.error) throw fu.error
@@ -98,11 +101,12 @@ function NewInquiry({ me, emps, onClose }: { me: any; emps: any[]; onClose: () =
       <h2>New inquiry</h2>
       <label>Customer name *<input required value={f.name} onChange={set('name')} /></label>
       <label>Phone<input inputMode="tel" value={f.phone} onChange={set('phone')} /></label>
-      <label>Product category<select value={f.cat} onChange={set('cat')}>{CATS.map((c) => <option key={c}>{c}</option>)}</select></label>
+      <label>Product category<select value={cat} onChange={set('cat')}>{CATS.map((c) => <option key={c}>{c}</option>)}</select></label>
+      {prods.length > 0 && <label>Catalogue product (updates stock when dispatched)<select value={f.prod} onChange={set('prod')}><option value="">— not in catalogue —</option>{prods.map((x: any) => <option key={x.id} value={x.id}>{x.product_name}</option>)}</select></label>}
       <label>Quantity<input type="number" min="0" value={f.qty} onChange={set('qty')} /></label>
       <label>Title / notes<input value={f.title} onChange={set('title')} /></label>
       <label>Priority<select value={f.priority} onChange={set('priority')}>{['Low','Medium','High','Urgent'].map((p) => <option key={p}>{p}</option>)}</select></label>
-      <label>Source<select value={f.source} onChange={set('source')}>{['WhatsApp','Phone Call','Email','Website','Referral','Walk-in','Manual','Other'].map((p) => <option key={p}>{p}</option>)}</select></label>
+      <label>Source<select value={source} onChange={set('source')}>{SRC.map((p) => <option key={p}>{p}</option>)}</select></label>
       {emps.length > 0 && <label>Assign to<select value={f.assign} onChange={set('assign')}>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>}
       {err && <p className="msg">{err}</p>}
       <div className="row"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button></div>
