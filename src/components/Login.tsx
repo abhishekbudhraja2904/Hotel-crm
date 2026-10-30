@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { APP_NAME, APP_TAGLINE } from '../lib/brand'
 export default function Login() {
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [msg, setMsg] = useState('')
   async function signIn(e: React.FormEvent) {
@@ -14,7 +15,9 @@ export default function Login() {
   }
   return (
     <form className="card login" onSubmit={signIn}>
-      <h1>OFORTT TECHNOLOGIES</h1>
+      <img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+      <h1>{APP_NAME}</h1>
+      <p className="tag">{APP_TAGLINE}</p>
       <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
       <label>Password<input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
       <button className="primary">Sign in</button>
