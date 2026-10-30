@@ -1,0 +1,28 @@
+import { useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { APP_NAME, APP_TAGLINE } from '../lib/brand'
+export default function Login() {
+  const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [msg, setMsg] = useState('')
+  async function signIn(e: React.FormEvent) {
+    e.preventDefault()
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setMsg(error.message)
+  }
+  async function reset() {
+    if (!email) return setMsg('Enter your email first.')
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin })
+    setMsg(error ? error.message : 'Password reset link sent to your email.')
+  }
+  return (
+    <form className="card login" onSubmit={signIn}>
+      <img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+      <h1>{APP_NAME}</h1>
+      <p className="tag">{APP_TAGLINE}</p>
+      <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+      <label>Password<input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+      <button className="primary">Sign in</button>
+      <button type="button" className="link" onClick={reset}>Forgot password?</button>
+      {msg && <p className="msg">{msg}</p>}
+    </form>
+  )
+}
