@@ -55,6 +55,12 @@ export default function Inquiries({ me }: { me: any }) {
     setMsg(error ? error.message : !data?.length ? `${r.inquiry_number} was changed by someone else. Try again.` : '')
     qc.invalidateQueries({ queryKey: ['inquiries'] })
   }
+  async function del(r: any) {
+    const t = prompt(`Delete ${r.inquiry_number} FOREVER, with its follow-ups, payments and history? This cannot be undone.\nType ${r.inquiry_number} to confirm:`)
+    if (t === null) return
+    const { error } = await supabase.rpc('delete_inquiry', { inq: r.id, confirm_number: t }); setMsg(error ? error.message : `${r.inquiry_number} deleted.`)
+    qc.invalidateQueries({ queryKey: ['inquiries'] })
+  }
   async function archive(r: any) {
     if (!confirm(`Archive ${r.inquiry_number}?`)) return
     const { error } = await supabase.from('inquiries').update({ archived_at: new Date().toISOString(), inquiry_status: 'Archived' }).eq('id', r.id)
@@ -84,7 +90,7 @@ export default function Inquiries({ me }: { me: any }) {
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
             <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>
-            {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button></>}
+            {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button><button className="link" onClick={() => del(r)}>Delete</button></>}
           </div>
         </div>
       ))}

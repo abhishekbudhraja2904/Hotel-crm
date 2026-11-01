@@ -12,9 +12,11 @@ import Team from './components/Team'
 import Attendance from './components/Attendance'
 import Inventory from './components/Inventory'
 import Settings from './components/Settings'
+import AfterSales from './components/AfterSales'
+import Insights from './components/Insights'
 
 function Shell({ session }: { session: any }) {
-  const [tab, setTab] = useState<'dash' | 'inq' | 'pipe' | 'fu' | 'team' | 'time' | 'inv' | 'set'>('dash')
+  const [tab, setTab] = useState<'dash' | 'inq' | 'pipe' | 'fu' | 'team' | 'time' | 'inv' | 'set' | 'after' | 'ins'>('dash')
   const [menu, setMenu] = useState(false)
   const conn = useRealtime()
   const { data: me, isLoading } = useQuery({
@@ -36,14 +38,14 @@ function Shell({ session }: { session: any }) {
   if (!me || !me.active) return <div className="card login"><p>Your account isn't linked to an active employee profile. Ask the administrator.</p><button onClick={() => supabase.auth.signOut()}>Sign out</button></div>
   // Who sees which menu items: technicians (role 'service') get only Inventory, Clock and Settings; sales get no Inventory or Team; admin gets everything.
   const items: string[][] = me.role === 'service'
-    ? [['inv', 'Inventory'], ['time', 'Clock'], ['set', 'Settings']]
-    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['team', 'Team']] : canInv.data ? [['inv', 'Inventory']] : []), ['set', 'Settings']]
+    ? [['inv', 'Inventory'], ['after', 'Jobs'], ['time', 'Clock'], ['set', 'Settings']]
+    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['after', 'After-sales'], ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['ins', 'Insights'], ['team', 'Team']] : canInv.data ? [['inv', 'Inventory']] : []), ['set', 'Settings']]
   const cur = items.some(([k]) => k === tab) ? tab : items[0][0] // a technician opens straight on Inventory
   return (
     <>
       <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<span className="muted">{me.employee_name} ({me.role})</span>
         <button className="link" onClick={signOut}>Sign out</button></header>
-      <main>{cur === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{cur === 'dash' ? <Dashboard me={me} /> : cur === 'inq' ? <Inquiries me={me} /> : cur === 'pipe' ? <Pipeline /> : cur === 'fu' ? <Followups me={me} /> : cur === 'time' ? <Attendance me={me} /> : cur === 'inv' ? <Inventory me={me} /> : cur === 'set' ? <Settings me={me} /> : <Team />}</main>
+      <main>{cur === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{cur === 'dash' ? <Dashboard me={me} /> : cur === 'inq' ? <Inquiries me={me} /> : cur === 'pipe' ? <Pipeline /> : cur === 'fu' ? <Followups me={me} /> : cur === 'time' ? <Attendance me={me} /> : cur === 'inv' ? <Inventory me={me} /> : cur === 'set' ? <Settings me={me} /> : cur === 'after' ? <AfterSales me={me} /> : cur === 'ins' ? <Insights /> : <Team />}</main>
       {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{items.map(([k, l]) => <button key={k} className={cur === k ? 'on' : ''} onClick={() => { setTab(k as any); setMenu(false) }}>{l}</button>)}</nav>
     </>
   )
