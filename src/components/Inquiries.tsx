@@ -5,13 +5,14 @@ import { useSettings } from '../lib/settings'
 import ScheduleFollowup from './ScheduleFollowup'
 import LostReason from './LostReason'
 import Payments from './Payments'
+import ConfirmOrder from './ConfirmOrder'
 import { inr } from '../lib/money'
 import { moveStage } from '../lib/stage'
 
 export default function Inquiries({ me }: { me: any }) {
   const qc = useQueryClient()
   const { stages: STAGES } = useSettings()
-  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null)
+  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true)).data ?? [] })
   const [emp, setEmp] = useState('')
@@ -39,6 +40,7 @@ export default function Inquiries({ me }: { me: any }) {
   async function changeStage(r: any, next: string) {
     setMsg('')
     if (next === 'Lost' && r.sales_stage !== 'Lost') return setLostFor(r) // ask why first
+    if (next === 'Order Confirmed' && r.sales_stage !== 'Order Confirmed') return setConfirmFor(r) // link products so stock can be locked
     // updated_at guard: if another user saved first, 0 rows match and we refuse to overwrite.
     const { data, error } = await supabase.from('inquiries').update({ sales_stage: next })
       .eq('id', r.id).eq('updated_at', r.updated_at).select('id')
@@ -86,6 +88,7 @@ export default function Inquiries({ me }: { me: any }) {
           </div>
         </div>
       ))}
+      {confirmFor && <ConfirmOrder inquiry={confirmFor} onClose={() => setConfirmFor(null)} onConfirm={async () => { const e = await moveStage(confirmFor, 'Order Confirmed'); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); qc.invalidateQueries({ queryKey: ['inventory'] }); return e }} />}
       {payFor && <Payments me={me} inquiry={payFor} onClose={() => setPayFor(null)} />}
       {lostFor && <LostReason title={`${lostFor.customers?.customer_name ?? ''} · ${lostFor.inquiry_number}`} onClose={() => setLostFor(null)} onSave={async (reason, note) => { const e = await moveStage(lostFor, 'Lost', { lost_reason: reason, lost_note: note || null }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); return e }} />}
       {fuFor && <ScheduleFollowup me={me} inquiryId={fuFor.id} assignedTo={fuFor.assigned_to} title="Add a follow-up" subtitle={`${fuFor.customers?.customer_name ?? ''} · ${fuFor.inquiry_number}`} onClose={() => setFuFor(null)} />}

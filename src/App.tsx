@@ -31,12 +31,13 @@ function Shell({ session }: { session: any }) {
     return () => { clearInterval(i); document.removeEventListener('visibilitychange', v) }
   }, [me?.id, me?.active])
   const signOut = async () => { try { await supabase.rpc('clock_out') } catch {} await supabase.auth.signOut() }
+  const canInv = useQuery({ queryKey: ['inventory', 'can'], enabled: !!me?.active, queryFn: async () => !!(await supabase.rpc('can_update_inventory')).data })
   if (isLoading) return <p className="pad">Loading…</p>
   if (!me || !me.active) return <div className="card login"><p>Your account isn't linked to an active employee profile. Ask the administrator.</p><button onClick={() => supabase.auth.signOut()}>Sign out</button></div>
   // Who sees which menu items: technicians (role 'service') get only Inventory, Clock and Settings; sales get no Inventory or Team; admin gets everything.
   const items: string[][] = me.role === 'service'
     ? [['inv', 'Inventory'], ['time', 'Clock'], ['set', 'Settings']]
-    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['team', 'Team']] : []), ['set', 'Settings']]
+    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['team', 'Team']] : canInv.data ? [['inv', 'Inventory']] : []), ['set', 'Settings']]
   const cur = items.some(([k]) => k === tab) ? tab : items[0][0] // a technician opens straight on Inventory
   return (
     <>
