@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import ScheduleFollowup from './ScheduleFollowup'
 const OUTCOMES = ['Connected','No Response','Interested','Not Interested','Requested More Information','Quotation Requested','Approval Pending','Other']
 export default function Followups({ me }: { me: any }) {
   const qc = useQueryClient()
-  const [msg, setMsg] = useState(''), [outcome, setOutcome] = useState<Record<string, string>>({})
+  const [msg, setMsg] = useState(''), [next, setNext] = useState<any>(null), [outcome, setOutcome] = useState<Record<string, string>>({})
   const { data = [], isLoading } = useQuery({
     queryKey: ['followups'],
     queryFn: async () => {
       const { data, error } = await supabase.from('followups')
-        .select('id,followup_type,scheduled_at,status,notes,updated_at,inquiries(inquiry_number,customers(customer_name,phone_number))')
+        .select('id,inquiry_id,assigned_to,followup_type,scheduled_at,status,notes,updated_at,inquiries(inquiry_number,customers(customer_name,phone_number))')
         .eq('status', 'Pending').order('scheduled_at')
       if (error) throw error
       return data
@@ -21,6 +22,7 @@ export default function Followups({ me }: { me: any }) {
       .eq('id', r.id).eq('updated_at', r.updated_at).select('id')
     setMsg(error ? error.message : !data?.length ? 'This follow-up was already changed by someone else.' : '')
     qc.invalidateQueries({ queryKey: ['followups'] })
+    if (!error && data?.length) setNext(r)
   }
   async function reschedule(r: any) {
     const v = prompt('New date/time (YYYY-MM-DD HH:MM)'); if (!v) return
@@ -48,6 +50,7 @@ export default function Followups({ me }: { me: any }) {
   return (
     <section>
       {msg && <p className="msg">{msg}</p>}
+      {next && <ScheduleFollowup me={me} inquiryId={next.inquiry_id} assignedTo={next.assigned_to} canSkip title="Done. When is the next follow-up?" subtitle={`${next.inquiries?.customers?.customer_name ?? ''} · ${next.inquiries?.inquiry_number ?? ''}`} onClose={() => setNext(null)} />}
       {isLoading && <p>Loading…</p>}
       {!isLoading && !data.length && <p className="empty">No pending follow-ups. 🎉</p>}
       {group('Overdue', data.filter((r: any) => +new Date(r.scheduled_at) < now))}

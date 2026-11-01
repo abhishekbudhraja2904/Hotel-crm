@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useSettings } from '../lib/settings'
+import ScheduleFollowup from './ScheduleFollowup'
 
 export default function Inquiries({ me }: { me: any }) {
   const qc = useQueryClient()
   const { stages: STAGES } = useSettings()
+  const [fuFor, setFuFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true)).data ?? [] })
   const [emp, setEmp] = useState('')
@@ -65,10 +67,12 @@ export default function Inquiries({ me }: { me: any }) {
           <div className="muted">Assigned: {r.assigned?.employee_name ?? 'Unassigned'} · Next follow-up: {r.next_followup_at ? new Date(r.next_followup_at).toLocaleString() : '—'}</div>
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
+            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>
             {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button></>}
           </div>
         </div>
       ))}
+      {fuFor && <ScheduleFollowup me={me} inquiryId={fuFor.id} assignedTo={fuFor.assigned_to} title="Add a follow-up" subtitle={`${fuFor.customers?.customer_name ?? ''} · ${fuFor.inquiry_number}`} onClose={() => setFuFor(null)} />}
       {open && <NewInquiry me={me} emps={isAdmin ? emps : []} onClose={() => setOpen(false)} />}
     </section>
   )
