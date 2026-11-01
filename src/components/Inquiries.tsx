@@ -122,7 +122,6 @@ function NewInquiry({ me, emps, onClose }: { me: any; emps: any[]; onClose: () =
       <label>Customer name *<input required value={f.name} onChange={set('name')} /></label>
       <label>Phone<input inputMode="tel" value={f.phone} onChange={set('phone')} /></label>
       <label>Product category<select value={cat} onChange={set('cat')}>{CATS.map((c) => <option key={c}>{c}</option>)}</select></label>
-      {prods.length > 0 && <label>Catalogue product (updates stock when dispatched)<select value={f.prod} onChange={set('prod')}><option value="">— not in catalogue —</option>{prods.map((x: any) => <option key={x.id} value={x.id}>{x.product_name}</option>)}</select></label>}
       <label>Quantity<input type="number" min="0" value={f.qty} onChange={set('qty')} /></label>
       <label>Title / notes<input value={f.title} onChange={set('title')} /></label>
       <label>Priority<select value={f.priority} onChange={set('priority')}>{['Low','Medium','High','Urgent'].map((p) => <option key={p}>{p}</option>)}</select></label>
