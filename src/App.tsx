@@ -11,9 +11,10 @@ import Pipeline from './components/Pipeline'
 import Team from './components/Team'
 import Attendance from './components/Attendance'
 import Inventory from './components/Inventory'
+import Settings from './components/Settings'
 
 function Shell({ session }: { session: any }) {
-  const [tab, setTab] = useState<'dash' | 'inq' | 'pipe' | 'fu' | 'team' | 'time' | 'inv'>('dash')
+  const [tab, setTab] = useState<'dash' | 'inq' | 'pipe' | 'fu' | 'team' | 'time' | 'inv' | 'set'>('dash')
   const [menu, setMenu] = useState(false)
   const conn = useRealtime()
   const { data: me, isLoading } = useQuery({
@@ -36,8 +37,8 @@ function Shell({ session }: { session: any }) {
     <>
       <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<span className="muted">{me.employee_name} ({me.role})</span>
         <button className="link" onClick={signOut}>Sign out</button></header>
-      <main>{tab === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{tab === 'dash' ? <Dashboard me={me} /> : tab === 'inq' ? <Inquiries me={me} /> : tab === 'pipe' ? <Pipeline /> : tab === 'fu' ? <Followups me={me} /> : tab === 'time' ? <Attendance me={me} /> : tab === 'inv' ? <Inventory me={me} /> : <Team />}</main>
-      {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{([['dash','Dashboard'],['inq','Inquiries'],['pipe','Pipeline'],['fu','Follow-ups'],['time','Clock'],...(['admin','service'].includes(me.role) ? [['inv','Inventory']] : []),...(me.role === 'admin' ? [['team','Team']] : [])] as string[][]).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k as any); setMenu(false) }}>{l}</button>)}</nav>
+      <main>{tab === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{tab === 'dash' ? <Dashboard me={me} /> : tab === 'inq' ? <Inquiries me={me} /> : tab === 'pipe' ? <Pipeline /> : tab === 'fu' ? <Followups me={me} /> : tab === 'time' ? <Attendance me={me} /> : tab === 'inv' ? <Inventory me={me} /> : tab === 'set' ? <Settings me={me} /> : <Team />}</main>
+      {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{([['dash','Dashboard'],['inq','Inquiries'],['pipe','Pipeline'],['fu','Follow-ups'],['time','Clock'],...(['admin','service'].includes(me.role) ? [['inv','Inventory']] : []),...(me.role === 'admin' ? [['team','Team']] : []),['set','Settings']] as string[][]).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k as any); setMenu(false) }}>{l}</button>)}</nav>
     </>
   )
 }

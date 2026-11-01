@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { inr } from '../lib/money'
+import { useSettings, Tile } from '../lib/settings'
 export default function Dashboard({ me }: { me?: any }) {
+  const { tiles } = useSettings()
   const inq = useQuery({ queryKey: ['inquiries', 'dash'], queryFn: async () => {
     const { data, error } = await supabase.from('inquiries').select('sales_stage,created_at,updated_at,lost_reason').is('archived_at', null); if (error) throw error; return data } })
   const fu = useQuery({ queryKey: ['followups', 'dash'], queryFn: async () => {
@@ -21,15 +23,15 @@ export default function Dashboard({ me }: { me?: any }) {
   const now = Date.now(), t0 = new Date().setHours(0, 0, 0, 0), t1 = new Date().setHours(23, 59, 59, 999), m = new Date()
   const isMonth = (s: string) => { const d = new Date(s); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() }
   const I = inq.data, closed = ['Order Confirmed', 'Lost']
-  const cards: [string, number][] = [
-    ['Total inquiries', I.length], ['New today', I.filter((r) => +new Date(r.created_at) >= t0).length],
-    ['Active', I.filter((r) => !closed.includes(r.sales_stage) && r.sales_stage !== 'On Hold').length],
-    ['Follow-ups due today', fu.data.filter((f) => +new Date(f.scheduled_at) >= now && +new Date(f.scheduled_at) <= t1).length],
-    ['Overdue follow-ups', fu.data.filter((f) => +new Date(f.scheduled_at) < now).length],
-    ['Quotations pending', I.filter((r) => r.sales_stage === 'Quotation Sent').length],
-    ['Orders confirmed', I.filter((r) => r.sales_stage === 'Order Confirmed').length],
-    ['Won this month', I.filter((r) => r.sales_stage === 'Order Confirmed' && isMonth(r.updated_at)).length],
-    ['Lost this month', I.filter((r) => r.sales_stage === 'Lost' && isMonth(r.updated_at)).length]]
+  const count = (t: Tile): number => {
+    if (t.kind === 'total') return I.length
+    if (t.kind === 'today') return I.filter((r) => +new Date(r.created_at) >= t0).length
+    if (t.kind === 'active') return I.filter((r) => !closed.includes(r.sales_stage) && r.sales_stage !== 'On Hold').length
+    if (t.kind === 'due_today') return fu.data.filter((f) => +new Date(f.scheduled_at) >= now && +new Date(f.scheduled_at) <= t1).length
+    if (t.kind === 'overdue') return fu.data.filter((f) => +new Date(f.scheduled_at) < now).length
+    return I.filter((r) => (t.stages ?? []).includes(r.sales_stage) && (!t.period || t.period === 'all' || (t.period === 'month' ? isMonth(r.updated_at) : +new Date(r.updated_at) >= t0))).length
+  }
+  const cards: [string, number][] = tiles.filter((t) => !t.hidden).map((t) => [t.label, count(t)])
   // Why inquiries are lost (all lost inquiries; older ones without a reason are grouped as "Not recorded")
   const lost = I.filter((r) => r.sales_stage === 'Lost'), counts: Record<string, number> = {}
   for (const r of lost) { const k = r.lost_reason || 'Not recorded'; counts[k] = (counts[k] ?? 0) + 1 }
