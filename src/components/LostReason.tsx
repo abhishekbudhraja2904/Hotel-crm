@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { LOST_REASONS } from '../lib/stage'
+import { useSettings } from '../lib/settings'
 // Asks why an inquiry was lost, then hands the answer back to be saved together with the stage change.
 export default function LostReason({ title, onSave, onClose }: { title: string; onSave: (reason: string, note: string) => Promise<string | null>; onClose: () => void }) {
-  const [reason, setReason] = useState(LOST_REASONS[0]), [note, setNote] = useState(''), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  const { lostReasons: LOST_REASONS } = useSettings()
+  const [picked, setReason] = useState(''), reason = picked || LOST_REASONS[0], [note, setNote] = useState(''), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
   async function save() { setBusy(true); setErr(''); const e = await onSave(reason, note.trim()); setBusy(false); if (e) setErr(e); else onClose() }
   return (
     <div className="modal"><div className="card">

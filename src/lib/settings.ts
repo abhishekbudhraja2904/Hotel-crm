@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
 export const DEFAULT_CATEGORIES = ['RFID Hotel Locks','Electronic Door Locks','RFID Cards','Access Control','Sensor-Based Entry','Automatic Sliding Doors','Hotel Lock Software','Accessories','Other']
+export const DEFAULT_LOST_REASONS = ['Price was too high','Chose a competitor','No response from customer','Project cancelled or postponed','Other']
 export const DEFAULT_SOURCES = ['WhatsApp','Phone Call','Email','Website','Referral','Walk-in','Manual','Other']
 // These four stages drive built-in behaviour (new inquiries, won/lost counts, dispatch, stopping follow-ups), so they stay fixed.
 export const FIRST = 'New Inquiry'
@@ -17,7 +18,7 @@ export function useSettings() {
     const { data, error } = await supabase.from('org_settings').select('key,value'); if (error) throw error
     return Object.fromEntries((data ?? []).map((r: any) => [r.key, r.value])) as Record<string, any> } })
   const s = data ?? {}
-  return { categories: list(s.categories, DEFAULT_CATEGORIES), sources: list(s.sources, DEFAULT_SOURCES), stages: normStages(s.stages) }
+  return { categories: list(s.categories, DEFAULT_CATEGORIES), sources: list(s.sources, DEFAULT_SOURCES), lostReasons: list(s.lostReasons, DEFAULT_LOST_REASONS), stages: normStages(s.stages) }
 }
 export async function saveSetting(key: string, value: any, by: string): Promise<string | null> {
   const { data: ex, error: e1 } = await supabase.from('org_settings').select('id').eq('key', key).maybeSingle()

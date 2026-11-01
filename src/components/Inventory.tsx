@@ -14,6 +14,10 @@ export default function Inventory({ me }: { me: any }) {
     const { data, error } = await supabase.from('stock_movements').select('id,qty_change,reason,note,created_at,products(product_name),employees:created_by(employee_name)').order('created_at', { ascending: false }).limit(15); if (error) throw error; return data } })
   const ready = useQuery({ queryKey: ['inquiries', 'dispatch'], queryFn: async () => {
     const { data, error } = await supabase.from('inquiries').select('id,inquiry_number,inquiry_title,inquiry_items(product_id,product_name_snapshot,quantity,unit)').eq('sales_stage', 'Order Confirmed').is('dispatched_at', null).is('archived_at', null); if (error) throw error; return data } })
+  const cleared = useQuery({ queryKey: ['inventory', 'cleared', (ready.data ?? []).map((r: any) => r.id).join(',')], enabled: !!ready.data?.length, queryFn: async () => {
+    const out: Record<string, boolean> = {}
+    await Promise.all((ready.data ?? []).map(async (r: any) => { const { data } = await supabase.rpc('payment_cleared', { inq: r.id }); out[r.id] = !!data }))
+    return out } })
   const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   const stock = (id: string) => Number(one(prods.data?.find((p: any) => p.id === id)?.inventory)?.qty_on_hand ?? 0)
   async function move(p: any, sign: 1 | -1) {
@@ -29,9 +33,9 @@ export default function Inventory({ me }: { me: any }) {
     if (Number(np.open) > 0) await supabase.from('stock_movements').insert({ product_id: data.id, qty_change: Number(np.open), reason: 'stock_in', note: 'Opening stock', created_by: me.id })
     setNp({ name: '', cat: '', code: '', unit: 'pcs', open: '', low: '' }); setBusy(false); refresh()
   }
-  async function dispatch(r: any) {
-    if (!confirm(`Dispatch ${r.inquiry_number}? Stock will be subtracted.`)) return
-    const { error } = await supabase.rpc('dispatch_inquiry', { inq: r.id }); setMsg(error ? error.message : ''); refresh()
+  async function dispatch(r: any, override = false) {
+    if (!confirm(override ? `Dispatch ${r.inquiry_number} WITHOUT full payment? This is recorded.` : `Dispatch ${r.inquiry_number}? Stock will be subtracted.`)) return
+    const { error } = await supabase.rpc('dispatch_inquiry', { inq: r.id, override }); setMsg(error ? error.message : ''); refresh()
   }
   return (
     <section>
@@ -41,7 +45,10 @@ export default function Inventory({ me }: { me: any }) {
       {ready.data?.map((r: any) => <div className="card" key={r.id}><div className="row"><b>{r.inquiry_number}</b><span className="muted">{r.inquiry_title}</span></div>
         {r.inquiry_items?.map((i: any, k: number) => <div className="muted" key={k}>{i.product_name_snapshot} × {i.quantity ?? '?'}{' '}
           {i.product_id ? (stock(i.product_id) < Number(i.quantity ?? 0) ? <span className="pill Urgent">only {stock(i.product_id)} in stock</span> : <span className="pill">in stock: {stock(i.product_id)}</span>) : <span className="pill Medium">not in catalogue – stock won’t change</span>}</div>)}
-        <button className="primary" onClick={() => dispatch(r)}>Dispatch & update stock</button></div>)}
+        {cleared.data?.[r.id]
+          ? <button className="primary" onClick={() => dispatch(r)}>Dispatch & update stock</button>
+          : <><span className="pill Medium" style={{ justifySelf: 'start' }}>Waiting for full payment</span>
+              {isAdmin && <button className="link" onClick={() => dispatch(r, true)}>Dispatch anyway (admin)</button>}</>}</div>)}
       <h3>Stock</h3>
       {prods.isLoading && <p className="empty">Loading…</p>}
       {prods.data && !prods.data.length && <p className="empty">No products yet.{isAdmin ? ' Add the first one below.' : ' Ask the admin to add products.'}</p>}

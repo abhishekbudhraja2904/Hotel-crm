@@ -4,12 +4,14 @@ import { supabase } from '../lib/supabase'
 import { useSettings } from '../lib/settings'
 import ScheduleFollowup from './ScheduleFollowup'
 import LostReason from './LostReason'
+import Payments from './Payments'
+import { inr } from '../lib/money'
 import { moveStage } from '../lib/stage'
 
 export default function Inquiries({ me }: { me: any }) {
   const qc = useQueryClient()
   const { stages: STAGES } = useSettings()
-  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null)
+  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true)).data ?? [] })
   const [emp, setEmp] = useState('')
@@ -27,6 +29,13 @@ export default function Inquiries({ me }: { me: any }) {
   const rows = data.filter((r: any) => (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) &&
     JSON.stringify(r).toLowerCase().includes(q.toLowerCase()))
 
+  const money = useQuery({ queryKey: ['money', 'all'], queryFn: async () => {
+    const f = await supabase.from('order_finance').select('inquiry_id,order_value,balance_due_on'); if (f.error) throw f.error
+    const p = await supabase.from('payments').select('inquiry_id,amount'); if (p.error) throw p.error
+    const m: Record<string, { value: number | null; paid: number; due: string | null }> = {}
+    for (const x of f.data as any[]) m[x.inquiry_id] = { value: Number(x.order_value), paid: 0, due: x.balance_due_on }
+    for (const x of p.data as any[]) { m[x.inquiry_id] = m[x.inquiry_id] ?? { value: null, paid: 0, due: null }; m[x.inquiry_id].paid += Number(x.amount) }
+    return m } })
   async function changeStage(r: any, next: string) {
     setMsg('')
     if (next === 'Lost' && r.sales_stage !== 'Lost') return setLostFor(r) // ask why first
@@ -68,6 +77,7 @@ export default function Inquiries({ me }: { me: any }) {
           <div>{r.customers?.customer_name} {r.customers?.phone_number && <a href={`tel:${r.customers.phone_number}`}>📞 {r.customers.phone_number}</a>}</div>
           <div className="muted">{r.inquiry_items?.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || r.inquiry_title || 'No product yet'}</div>
           <div className="muted">Assigned: {r.assigned?.employee_name ?? 'Unassigned'} · Next follow-up: {r.next_followup_at ? new Date(r.next_followup_at).toLocaleString() : '—'}</div>
+          {r.sales_stage === 'Order Confirmed' && (() => { const m = money.data?.[r.id]; return <div className="row"><div className="muted">{m?.value != null ? `Received ${inr(m.paid)} of ${inr(m.value)} · balance ${inr(Math.max(0, m.value - m.paid))}${m.due ? ` · due ${new Date(m.due + 'T00:00:00').toLocaleDateString()}` : ''}` : 'Order value not entered yet'}</div><button className="link" onClick={() => setPayFor(r)}>Payments</button></div> })()}
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
@@ -76,6 +86,7 @@ export default function Inquiries({ me }: { me: any }) {
           </div>
         </div>
       ))}
+      {payFor && <Payments me={me} inquiry={payFor} onClose={() => setPayFor(null)} />}
       {lostFor && <LostReason title={`${lostFor.customers?.customer_name ?? ''} · ${lostFor.inquiry_number}`} onClose={() => setLostFor(null)} onSave={async (reason, note) => { const e = await moveStage(lostFor, 'Lost', { lost_reason: reason, lost_note: note || null }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); return e }} />}
       {fuFor && <ScheduleFollowup me={me} inquiryId={fuFor.id} assignedTo={fuFor.assigned_to} title="Add a follow-up" subtitle={`${fuFor.customers?.customer_name ?? ''} · ${fuFor.inquiry_number}`} onClose={() => setFuFor(null)} />}
       {open && <NewInquiry me={me} emps={isAdmin ? emps : []} onClose={() => setOpen(false)} />}
