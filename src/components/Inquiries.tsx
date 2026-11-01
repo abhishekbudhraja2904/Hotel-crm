@@ -3,11 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useSettings } from '../lib/settings'
 import ScheduleFollowup from './ScheduleFollowup'
+import LostReason from './LostReason'
+import { moveStage } from '../lib/stage'
 
 export default function Inquiries({ me }: { me: any }) {
   const qc = useQueryClient()
   const { stages: STAGES } = useSettings()
-  const [fuFor, setFuFor] = useState<any>(null)
+  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true)).data ?? [] })
   const [emp, setEmp] = useState('')
@@ -16,7 +18,7 @@ export default function Inquiries({ me }: { me: any }) {
     queryKey: ['inquiries'],
     queryFn: async () => {
       const { data, error } = await supabase.from('inquiries')
-        .select('id,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
+        .select('id,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
         .is('archived_at', null).order('created_at', { ascending: false }).limit(200)
       if (error) throw error
       return data
@@ -27,6 +29,7 @@ export default function Inquiries({ me }: { me: any }) {
 
   async function changeStage(r: any, next: string) {
     setMsg('')
+    if (next === 'Lost' && r.sales_stage !== 'Lost') return setLostFor(r) // ask why first
     // updated_at guard: if another user saved first, 0 rows match and we refuse to overwrite.
     const { data, error } = await supabase.from('inquiries').update({ sales_stage: next })
       .eq('id', r.id).eq('updated_at', r.updated_at).select('id')
@@ -65,6 +68,7 @@ export default function Inquiries({ me }: { me: any }) {
           <div>{r.customers?.customer_name} {r.customers?.phone_number && <a href={`tel:${r.customers.phone_number}`}>📞 {r.customers.phone_number}</a>}</div>
           <div className="muted">{r.inquiry_items?.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || r.inquiry_title || 'No product yet'}</div>
           <div className="muted">Assigned: {r.assigned?.employee_name ?? 'Unassigned'} · Next follow-up: {r.next_followup_at ? new Date(r.next_followup_at).toLocaleString() : '—'}</div>
+          {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
             <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>
@@ -72,6 +76,7 @@ export default function Inquiries({ me }: { me: any }) {
           </div>
         </div>
       ))}
+      {lostFor && <LostReason title={`${lostFor.customers?.customer_name ?? ''} · ${lostFor.inquiry_number}`} onClose={() => setLostFor(null)} onSave={async (reason, note) => { const e = await moveStage(lostFor, 'Lost', { lost_reason: reason, lost_note: note || null }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); return e }} />}
       {fuFor && <ScheduleFollowup me={me} inquiryId={fuFor.id} assignedTo={fuFor.assigned_to} title="Add a follow-up" subtitle={`${fuFor.customers?.customer_name ?? ''} · ${fuFor.inquiry_number}`} onClose={() => setFuFor(null)} />}
       {open && <NewInquiry me={me} emps={isAdmin ? emps : []} onClose={() => setOpen(false)} />}
     </section>

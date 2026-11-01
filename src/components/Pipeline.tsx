@@ -2,18 +2,20 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { moveStage } from '../lib/stage'
+import LostReason from './LostReason'
 import { useSettings } from '../lib/settings'
 const PALETTE = ['#5a7d63', '#8A6F52', '#D9C9A5', '#c08a4a', '#a8573f', '#7a8f9c', '#6B8F72']
 const FIXED: Record<string, string> = { 'New Inquiry': '#6B8F72', 'Order Confirmed': '#3f6b4a', Lost: '#9b3b30', 'On Hold': '#8b8f86' }
 // Overview tiles show every stage's count at a glance (no sideways scrolling); tap a tile to see just those inquiries.
 export default function Pipeline() {
-  const qc = useQueryClient(), [msg, setMsg] = useState(''), [sel, setSel] = useState(''), [q, setQ] = useState('')
+  const qc = useQueryClient(), [msg, setMsg] = useState(''), [sel, setSel] = useState(''), [q, setQ] = useState(''), [lostFor, setLostFor] = useState<any>(null)
   const { stages } = useSettings()
   const { data = [], isLoading } = useQuery({ queryKey: ['inquiries', 'pipe'], queryFn: async () => {
     const { data, error } = await supabase.from('inquiries').select('id,inquiry_number,sales_stage,priority,updated_at,customers(customer_name)').is('archived_at', null).order('updated_at', { ascending: false }); if (error) throw error; return data } })
   const all = [...stages, ...[...new Set(data.map((r: any) => r.sales_stage))].filter((s: any) => !stages.includes(s))] as string[] // keeps inquiries visible even if their stage was removed elsewhere
   const colour = (s: string) => FIXED[s] ?? PALETTE[Math.max(0, all.indexOf(s)) % PALETTE.length]
   async function move(r: any, next: string) {
+    if (next === 'Lost' && r.sales_stage !== 'Lost') return setLostFor(r) // ask why first
     setMsg((await moveStage(r, next)) ?? '')
     qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] })
   }
@@ -21,6 +23,7 @@ export default function Pipeline() {
   return (
     <section>
       {msg && <p className="msg">{msg}</p>}
+      {lostFor && <LostReason title={`${lostFor.customers?.customer_name ?? ''} · ${lostFor.inquiry_number}`} onClose={() => setLostFor(null)} onSave={async (reason, note) => { const e = await moveStage(lostFor, 'Lost', { lost_reason: reason, lost_note: note || null }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); return e }} />}
       <div className="tiles">
         <button className={`tile${!sel ? ' sel' : ''}`} style={{ borderTopColor: '#0F1F17' }} onClick={() => setSel('')}><b>{data.length}</b><span>All</span></button>
         {all.map((s) => <button key={s} className={`tile${sel === s ? ' sel' : ''}`} style={{ borderTopColor: colour(s) }} onClick={() => setSel(sel === s ? '' : s)}>
