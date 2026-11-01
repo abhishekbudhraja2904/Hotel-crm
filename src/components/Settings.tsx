@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { getTheme, setTheme, Theme } from '../lib/theme'
+import { useDragReorder } from '../lib/drag'
 import { useSettings, saveSetting, FIRST, LAST, DEFAULT_TILES, Tile } from '../lib/settings'
 
 type Row = { orig?: string; name: string }
@@ -11,8 +12,8 @@ function ListEditor({ title, hint, fixedStart = [], fixedEnd = [], values, onSav
   const key = values.join('|')
   useEffect(() => { setRows(mk(values)) }, [key])
   const dirty = JSON.stringify(rows.map((r) => r.name)) !== JSON.stringify(values)
+  const drag = useDragReorder(rows, setRows)
   const edit = (i: number, v: string) => setRows(rows.map((r, k) => (k === i ? { ...r, name: v } : r)))
-  const move = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= rows.length) return; const n = [...rows]; [n[i], n[j]] = [n[j], n[i]]; setRows(n) }
   const addRow = () => { const v = add.trim(); if (!v) return; setRows([...rows, { name: v }]); setAdd('') }
   async function save() {
     setMsg(''); const names = rows.map((r) => r.name.trim())
@@ -27,8 +28,8 @@ function ListEditor({ title, hint, fixedStart = [], fixedEnd = [], values, onSav
   return (
     <div className="card"><h3 style={{ margin: 0 }}>{title}</h3>{hint && <p className="muted" style={{ margin: 0 }}>{hint}</p>}
       {fixedStart.map((f) => <div className="setrow fixed" key={f}><span>{f}</span><span className="muted">fixed</span></div>)}
-      {rows.map((r, i) => <div className="setrow" key={i}><input value={r.name} onChange={(e) => edit(i, e.target.value)} />
-        <button type="button" disabled={i === 0} onClick={() => move(i, -1)}>↑</button><button type="button" disabled={i === rows.length - 1} onClick={() => move(i, 1)}>↓</button>
+      {rows.map((r, i) => <div className={`setrow${drag.active === i ? ' dragging' : ''}`} key={i} ref={drag.ref(i)}>
+        <button type="button" className="grip" aria-label="Hold and drag to reorder" {...drag.handle(i)}>⠿</button><input value={r.name} onChange={(e) => edit(i, e.target.value)} />
         <button type="button" className="link" onClick={() => setRows(rows.filter((_, k) => k !== i))}>Remove</button></div>)}
       {fixedEnd.map((f) => <div className="setrow fixed" key={f}><span>{f}</span><span className="muted">fixed</span></div>)}
       <div className="setrow"><input placeholder="Add new…" value={add} onChange={(e) => setAdd(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addRow()} /><button type="button" onClick={addRow}>Add</button></div>
@@ -44,8 +45,8 @@ function TileEditor({ tiles, stages, onSave }: { tiles: Tile[]; stages: string[]
   const key = JSON.stringify(tiles)
   useEffect(() => { setRows(tiles) }, [key])
   const dirty = JSON.stringify(rows) !== key
+  const drag = useDragReorder(rows, setRows)
   const upd = (i: number, p: Partial<Tile>) => setRows(rows.map((r, k) => (k === i ? { ...r, ...p } : r)))
-  const move = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= rows.length) return; const n = [...rows]; [n[i], n[j]] = [n[j], n[i]]; setRows(n) }
   const toggle = (i: number, st: string) => { const cur = rows[i].stages ?? []; upd(i, { stages: cur.includes(st) ? cur.filter((x) => x !== st) : [...cur, st] }) }
   async function save() {
     if (rows.some((r) => !r.label.trim())) return setMsg('Every tile needs a name.')
@@ -55,14 +56,13 @@ function TileEditor({ tiles, stages, onSave }: { tiles: Tile[]; stages: string[]
   return (
     <div className="card"><h3 style={{ margin: 0 }}>Dashboard numbers</h3>
       <p className="muted" style={{ margin: 0 }}>The boxes at the top of the Dashboard. Rename, hide, reorder, or add your own count of inquiries in the stages you choose.</p>
-      {rows.map((r, i) => <div key={r.id} style={{ display: 'grid', gap: 6, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
-        <div className="setrow"><input value={r.label} onChange={(e) => upd(i, { label: e.target.value })} />
-          <button type="button" disabled={i === 0} onClick={() => move(i, -1)}>↑</button><button type="button" disabled={i === rows.length - 1} onClick={() => move(i, 1)}>↓</button>
+      {rows.map((r, i) => <div key={r.id} ref={drag.ref(i)} className={drag.active === i ? 'dragging' : ''} style={{ display: 'grid', gap: 6, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+        <div className="setrow"><button type="button" className="grip" aria-label="Hold and drag to reorder" {...drag.handle(i)}>⠿</button><input value={r.label} onChange={(e) => upd(i, { label: e.target.value })} />
           <button type="button" className="link" onClick={() => setRows(rows.filter((_, k) => k !== i))}>Remove</button></div>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row' }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={!r.hidden} onChange={(e) => upd(i, { hidden: !e.target.checked })} />Show on Dashboard</label>
         {r.kind !== 'stage' ? <span className="muted">Counts: {KIND_HELP[r.kind]}</span> : <>
           <span className="muted">Counts inquiries in these stages:</span>
-          <div className="bar">{stages.map((st) => <label key={st} style={{ display: 'flex', gap: 6, alignItems: 'center', flexDirection: 'row', fontSize: 13 }}><input type="checkbox" style={{ width: 16, height: 16, padding: 0 }} checked={(r.stages ?? []).includes(st)} onChange={() => toggle(i, st)} />{st}</label>)}</div>
+          <div className="checks">{stages.map((st) => <label key={st} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: 'inherit' }}><input type="checkbox" style={{ width: 16, height: 16, padding: 0 }} checked={(r.stages ?? []).includes(st)} onChange={() => toggle(i, st)} />{st}</label>)}</div>
           <label>Time window<select value={r.period ?? 'all'} onChange={(e) => upd(i, { period: e.target.value as any })}><option value="all">All time</option><option value="month">This month (by last change)</option><option value="today">Today (by last change)</option></select></label></>}
       </div>)}
       <div className="bar"><button type="button" onClick={() => setRows([...rows, { id: 't' + Date.now(), label: 'New count', kind: 'stage', stages: [], period: 'all' }])}>+ Add a stage count</button>

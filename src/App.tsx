@@ -33,12 +33,17 @@ function Shell({ session }: { session: any }) {
   const signOut = async () => { try { await supabase.rpc('clock_out') } catch {} await supabase.auth.signOut() }
   if (isLoading) return <p className="pad">Loading…</p>
   if (!me || !me.active) return <div className="card login"><p>Your account isn't linked to an active employee profile. Ask the administrator.</p><button onClick={() => supabase.auth.signOut()}>Sign out</button></div>
+  // Who sees which menu items: technicians (role 'service') get only Inventory, Clock and Settings; sales get no Inventory or Team; admin gets everything.
+  const items: string[][] = me.role === 'service'
+    ? [['inv', 'Inventory'], ['time', 'Clock'], ['set', 'Settings']]
+    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['team', 'Team']] : []), ['set', 'Settings']]
+  const cur = items.some(([k]) => k === tab) ? tab : items[0][0] // a technician opens straight on Inventory
   return (
     <>
       <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<span className="muted">{me.employee_name} ({me.role})</span>
         <button className="link" onClick={signOut}>Sign out</button></header>
-      <main>{tab === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{tab === 'dash' ? <Dashboard me={me} /> : tab === 'inq' ? <Inquiries me={me} /> : tab === 'pipe' ? <Pipeline /> : tab === 'fu' ? <Followups me={me} /> : tab === 'time' ? <Attendance me={me} /> : tab === 'inv' ? <Inventory me={me} /> : tab === 'set' ? <Settings me={me} /> : <Team />}</main>
-      {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{([['dash','Dashboard'],['inq','Inquiries'],['pipe','Pipeline'],['fu','Follow-ups'],['time','Clock'],...(['admin','service'].includes(me.role) ? [['inv','Inventory']] : []),...(me.role === 'admin' ? [['team','Team']] : []),['set','Settings']] as string[][]).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k as any); setMenu(false) }}>{l}</button>)}</nav>
+      <main>{cur === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{cur === 'dash' ? <Dashboard me={me} /> : cur === 'inq' ? <Inquiries me={me} /> : cur === 'pipe' ? <Pipeline /> : cur === 'fu' ? <Followups me={me} /> : cur === 'time' ? <Attendance me={me} /> : cur === 'inv' ? <Inventory me={me} /> : cur === 'set' ? <Settings me={me} /> : <Team />}</main>
+      {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{items.map(([k, l]) => <button key={k} className={cur === k ? 'on' : ''} onClick={() => { setTab(k as any); setMenu(false) }}>{l}</button>)}</nav>
     </>
   )
 }

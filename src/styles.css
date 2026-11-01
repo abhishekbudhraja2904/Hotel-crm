@@ -72,3 +72,8 @@ main{max-width:1000px;margin:0 auto 0 200px;padding:18px 24px 40px}
   .scrim{display:block;position:fixed;inset:0;background:#0008;z-index:7}
   main{margin:auto;padding:14px 12px 40px}
 }
+
+.grip{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border:0;background:none;color:var(--mut);font-size:20px;line-height:1;padding:8px 6px}
+.grip:active{cursor:grabbing}
+.dragging{outline:2px solid var(--accent);background:var(--selbg);border-radius:10px}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px}.checks input{flex:none;min-width:0;width:18px;height:18px;padding:0}
