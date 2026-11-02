@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap');
 /* Quiet Kraft: ink, kraft paper, stamp red. Faint diary touches (ruled lines, red bookmark ribbon, dog-ear). Fonts: Saira Stencil One (headings, numbers) · IBM Plex Sans (text) · DM Mono (small labels) */
 :root{--forest:#231E18;--sage:#C8A27A;--sand:#E9D8BC;--stone:#F8F4EA;--clay:#B9532F;--red:#B9532F;--green:#2F6B3A;--line:#DCD2BC;--mut:#6B5F4E;--bg:#F8F4EA;--ink:#231E18;--card:#FFFDF7;--soft:#F3EBD8;--selbg:#F6EEDC;--accent:#B9532F;--shadow:#3a2e1a14;--rule:#E9DFC7;color-scheme:light}
 :root[data-theme=dark]{--bg:#1A1612;--ink:#EFE6D4;--card:#241E18;--line:#3A3126;--mut:#A89B86;--soft:#2E261C;--selbg:#2E261C;--accent:#E48A68;--shadow:#00000040;--rule:#221C16;--forest:#14110E;--sand:#E9D8BC;color-scheme:dark}
@@ -96,3 +97,25 @@ main{max-width:1000px;margin:0 auto 0 210px;padding:18px 24px 40px}
 .stepper{display:flex;gap:8px;align-items:center}.stepper button{width:52px;height:52px;font-size:26px;padding:0}.stepper input{text-align:center;font-size:24px;font-weight:600;height:52px;min-width:0}
 .warnbox{background:#F3E6BF;border:1px solid #D9B96A;border-radius:8px;padding:8px 12px;font-size:14px;color:#3a2e00}
 .okbox{background:#E3EDDF;border:1px solid #A9C8A8;border-radius:8px;padding:8px 12px;font-size:14px;color:#1d3a1f}
+
+/* ===== Diary pass: the screen is a ruled page on a kraft desk; the menu is the stitched cover ===== */
+:root{--desk:#D3BE98;--page:#FDF9EE;--pline:#D9E0DF;--margin:#D9776A;--hole:#D3BE98}
+:root[data-theme=dark]{--desk:#0F0D0A;--page:#2A231B;--pline:#3A3228;--margin:#8A3F33;--hole:#0F0D0A}
+body{background-color:var(--desk);background-image:none}
+body::after{content:none}
+main{background-color:var(--page);background-image:linear-gradient(90deg,transparent 55px,var(--margin) 55px 56px,transparent 56px 59px,var(--margin) 59px 60px,transparent 60px),repeating-linear-gradient(transparent 0 31px,var(--pline) 31px 32px);background-position:0 0,0 14px;border-radius:6px 14px 14px 6px;box-shadow:0 2px 0 #00000012,0 10px 28px #3a2e1a33,inset 0 0 0 1px #00000010;margin:16px 24px 28px 226px;max-width:none;min-height:calc(100vh - 110px);padding:22px 28px 56px 82px}
+main::after{content:"";position:absolute;left:14px;top:30px;bottom:30px;width:26px;pointer-events:none;background:radial-gradient(circle at 50% 50%,var(--hole) 0 8px,#00000030 8px 9px,transparent 9px) 0 0/26px 150px repeat-y}
+/* curled bottom corner */
+main > :last-child{position:relative}
+.hello h2{font-family:'Caveat','Saira Stencil One',cursive;font-weight:600;font-size:36px;letter-spacing:.01em;line-height:1.1}
+/* stitched leather cover */
+header{outline:1px dashed #C8A27A88;outline-offset:-5px}
+nav{outline:1px dashed #C8A27A66;outline-offset:-7px;background-image:linear-gradient(90deg,#ffffff08,transparent 30%)}
+nav button{border-radius:0 10px 10px 0;margin:2px 10px 2px 0}
+nav .on{background:color-mix(in srgb,var(--ac) 32%,transparent)}
+.card,.stat,.tile{background-color:var(--card)}
+.card{box-shadow:0 1px 0 #00000010,0 3px 8px var(--shadow)}
+@media(max-width:767px){
+  main{margin:10px 8px 20px 8px;padding:16px 12px 40px 50px;background-image:linear-gradient(90deg,transparent 39px,var(--margin) 39px 40px,transparent 40px 43px,var(--margin) 43px 44px,transparent 44px),repeating-linear-gradient(transparent 0 31px,var(--pline) 31px 32px);background-position:0 0,0 14px}
+  main::after{left:6px;width:22px;background-size:22px 150px}
+}
