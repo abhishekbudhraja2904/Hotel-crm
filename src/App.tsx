@@ -41,7 +41,7 @@ function Shell({ session }: { session: any }) {
   // Who sees which menu items: technicians (role 'service') get only Inventory, Clock and Settings; sales get no Inventory or Team; admin gets everything.
   const items: string[][] = me.role === 'service'
     ? [['inv', 'Inventory'], ['after', 'Jobs'], ['time', 'Clock'], ['set', 'Settings']]
-    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ...(me.role === 'admin' ? [['quo', 'Quotations']] : []), ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['after', 'After-sales'], ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['ins', 'Insights'], ['team', 'Team']] : canInv.data ? [['inv', 'Inventory']] : []), ['set', 'Settings']]
+    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['quo', 'Quotations'], ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['after', 'After-sales'], ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['ins', 'Insights'], ['team', 'Team']] : canInv.data ? [['inv', 'Inventory']] : []), ['set', 'Settings']]
   const cur = items.some(([k]) => k === tab) ? tab : items[0][0] // a technician opens straight on Inventory
   return (
     <>

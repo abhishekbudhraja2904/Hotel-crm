@@ -6,12 +6,15 @@ type Line = { key: number; pid: string; name: string; qty: string; unit: string;
 let k = 1
 // "Record the quotation": pick the products, type the quantity and the price. Opens when an inquiry is moved to Quotation Sent.
 export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inquiry: any; onClose: () => void; onSaved?: () => Promise<string | null>; onSkip?: () => Promise<string | null> }) {
-  const qc = useQueryClient(), [lines, setLines] = useState<Line[] | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  const qc = useQueryClient(), [lines, setLines] = useState<Line[] | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false), [number, setNumber] = useState<string | null>(null)
   const prods = useQuery({ queryKey: ['quote-products'], queryFn: async () => {
     const { data, error } = await supabase.from('products').select('id,product_name,unit').eq('active', true).order('product_name'); if (error) throw error; return data as any[] } })
   const items = useQuery({ queryKey: ['quote-items', inquiry.id], queryFn: async () => {
     const { data, error } = await supabase.from('inquiry_items').select('id,product_id,product_name_snapshot,quantity,unit').eq('inquiry_id', inquiry.id).order('created_at'); if (error) throw error; return data as any[] } })
-  const ready = prods.data && items.data
+  const last = useQuery({ queryKey: ['quote-last', inquiry.id], queryFn: async () => {
+    const { data } = await supabase.from('quotations').select('quotation_number').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false }).limit(1); return (data?.[0]?.quotation_number as string) ?? '' } })
+  const numVal = number ?? last.data ?? '' // a revised quote starts with the previous number; staff can type a different one
+  const ready = prods.data && items.data && last.data !== undefined
   if (ready && lines === null) {
     const init: Line[] = items.data!.map((i) => ({ key: k++, pid: i.product_id ?? '__other', name: i.product_name_snapshot ?? '', qty: i.quantity != null ? String(Number(i.quantity)) : '', unit: i.unit ?? '', price: '' }))
     setLines(init.length ? init : [{ key: k++, pid: '', name: '', qty: '', unit: '', price: '' }])
@@ -27,13 +30,14 @@ export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inqui
   const done = async () => { qc.invalidateQueries({ queryKey: ['quotes'] }); qc.invalidateQueries({ queryKey: ['quote-library'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   async function save() {
     setErr('')
+    if (!numVal.trim()) return setErr('Enter the quotation number.')
     for (const l of L) {
       if (!l.name.trim()) return setErr('Choose a product (or type its name) on every line.')
       if (!(Number(l.qty) > 0)) return setErr(`Enter the quantity for ${l.name}.`)
       if (l.price === '' || Number(l.price) < 0) return setErr(`Enter the price for ${l.name}.`)
     }
     setBusy(true)
-    const { error } = await supabase.rpc('create_quotation', { p_inquiry: inquiry.id, p_lines: L.map((l) => ({ product_id: l.pid && l.pid !== '__other' ? l.pid : null, name: l.name.trim(), quantity: Number(l.qty), unit: l.unit || null, unit_price: Number(l.price) })) })
+    const { error } = await supabase.rpc('create_quotation', { p_inquiry: inquiry.id, p_number: numVal.trim(), p_lines: L.map((l) => ({ product_id: l.pid && l.pid !== '__other' ? l.pid : null, name: l.name.trim(), quantity: Number(l.qty), unit: l.unit || null, unit_price: Number(l.price) })) })
     if (error) { setBusy(false); return setErr(error.message) }
     const e = onSaved ? await onSaved() : null
     setBusy(false); await done()
@@ -45,6 +49,8 @@ export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inqui
       <h3 style={{ margin: 0 }}>Record the quotation</h3>
       <div className="muted">{inquiry.customers?.customer_name ?? ''} · {inquiry.inquiry_number}</div>
       {!ready && <p className="empty">Loading…</p>}
+      {ready && <label>Quotation number<input required value={numVal} onChange={(e) => setNumber(e.target.value)} placeholder="the number on your Excel quotation" />
+        <span className="muted" style={{ textTransform: 'none', letterSpacing: 0, fontFamily: 'inherit', fontSize: 12 }}>Type it yourself. Use the same number again to record a revised version.</span></label>}
       {L.map((l, i) => (
         <div className="card" key={l.key} style={{ margin: 0 }}>
           <div className="row"><b>Item {i + 1}</b>{L.length > 1 && <button type="button" className="link" onClick={() => setLines(L.filter((x) => x.key !== l.key))}>Remove</button>}</div>

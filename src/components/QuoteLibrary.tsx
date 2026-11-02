@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { inr } from '../lib/money'
 import { QSTATUS, qclass, one } from '../lib/quotes'
 const fmt = (d?: string | null) => (d ? new Date(d + 'T00:00:00').toLocaleDateString() : '')
-// Admin page: what was quoted to whom, across all inquiries.
+// What was quoted to whom. Admin sees every quotation; sales sees only quotations on their own inquiries (the database enforces this).
 export default function QuoteLibrary() {
   const [q, setQ] = useState(''), [st, setSt] = useState(''), [who, setWho] = useState('')
   const { data, isLoading, error } = useQuery({ queryKey: ['quote-library'], queryFn: async () => {
@@ -21,7 +21,7 @@ export default function QuoteLibrary() {
       <input className="search" placeholder="Search by customer, product, quote or inquiry number" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="bar">
         <select value={st} onChange={(e) => setSt(e.target.value)}><option value="">All statuses</option>{QSTATUS.map((s) => <option key={s}>{s}</option>)}</select>
-        <select value={who} onChange={(e) => setWho(e.target.value)}><option value="">Everyone</option>{names.map((n) => <option key={n}>{n}</option>)}</select>
+        {names.length > 1 && <select value={who} onChange={(e) => setWho(e.target.value)}><option value="">Everyone</option>{names.map((n) => <option key={n}>{n}</option>)}</select>}
       </div>
       {isLoading && <p className="empty">Loading…</p>}
       {error && <p className="msg">{(error as any).message}</p>}
