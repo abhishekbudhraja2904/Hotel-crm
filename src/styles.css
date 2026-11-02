@@ -145,3 +145,20 @@ h1,h2,h3,h4{font-family:'IBM Plex Sans',system-ui,sans-serif;font-weight:600;let
 .login button.primary:hover{background:#B9532F;border-color:#B9532F;color:#fff}
 .login button.link{color:#B9532F}
 @media(max-width:480px){.login{margin:6vh 10px;padding-left:62px}}
+
+/* ===== Fix: big numbers must fit their card (they shrink instead of spilling) ===== */
+.stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.stat,.tile{container-type:inline-size;overflow:hidden;min-width:0}
+.stat b{font-size:22px;font-size:clamp(16px,15cqw,26px);white-space:nowrap;line-height:1.2}
+.tile b{font-size:20px;font-size:clamp(15px,16cqw,22px);white-space:nowrap}
+.bignum{font-size:26px}
+
+/* ===== Fix: spacing between button rows and the next block (not inside cards) ===== */
+.bar{margin-bottom:12px}
+.bigbtn{margin:12px 0}
+.card .bar,.modal .bar{margin-bottom:0}
+.card .bigbtn,.modal .bigbtn{margin:0}
+
+/* number boxes that shrink their text to fit (used on the Insights page) */
+.fitbox{container-type:inline-size;min-width:0}
+.fitbox .bignum{font-size:22px;font-size:clamp(15px,16cqw,26px);white-space:nowrap}

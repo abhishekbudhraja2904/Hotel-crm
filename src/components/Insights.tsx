@@ -32,7 +32,7 @@ export default function Insights() {
     const out: Record<string, number> = {}; for (const x of mv.data as any[]) out[x.product_id] = (out[x.product_id] ?? 0) - Number(x.qty_change)
     return (o.data as any[]).map((p) => { const rate = (out[p.product_id] ?? 0) / 8; return { ...p, rate, weeks: rate > 0 ? Number(p.free) / rate : null } }).filter((p) => p.weeks !== null && p.weeks < 6).sort((a, b) => a.weeks - b.weeks) } })
   const w = week.data, cut = Date.now() - Number(quiet) * 86400000, rep = (repeat.data ?? []).filter((x) => new Date(x.last).getTime() < cut).sort((a, b) => a.last.localeCompare(b.last))
-  const Stat = (v: any, l: string) => <div className="card" style={{ margin: 0, textAlign: 'center' }}><div className="bignum" style={{ textAlign: 'center' }}>{v}</div><div className="muted">{l}</div></div>
+  const Stat = (v: any, l: string) => <div className="card" style={{ margin: 0, textAlign: 'center' }}><div className="fitbox"><div className="bignum" style={{ textAlign: 'center' }}>{v}</div></div><div className="muted">{l}</div></div>
   return (
     <section>
       <h3>This week (last 7 days)</h3>
