@@ -1,0 +1,170 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap');
+/* Quiet Kraft: ink, kraft paper, stamp red. Faint diary touches (ruled lines, red bookmark ribbon, dog-ear). Fonts: Saira Stencil One (headings, numbers) · IBM Plex Sans (text) · DM Mono (small labels) */
+:root{--forest:#231E18;--sage:#C8A27A;--sand:#E9D8BC;--stone:#F8F4EA;--clay:#B9532F;--red:#B9532F;--green:#2F6B3A;--line:#DCD2BC;--mut:#6B5F4E;--bg:#F8F4EA;--ink:#231E18;--card:#FFFDF7;--soft:#F3EBD8;--selbg:#F6EEDC;--accent:#B9532F;--shadow:#3a2e1a14;--rule:#E9DFC7;color-scheme:light}
+:root[data-theme=dark]{--bg:#1A1612;--ink:#EFE6D4;--card:#241E18;--line:#3A3126;--mut:#A89B86;--soft:#2E261C;--selbg:#2E261C;--accent:#E48A68;--shadow:#00000040;--rule:#221C16;--forest:#14110E;--sand:#E9D8BC;color-scheme:dark}
+:root[data-theme=dark] body::after{opacity:.04}
+:root[data-theme=dark] .pill{background:#233222;color:#9fd0a8}:root[data-theme=dark] .pill.Medium{background:#3a3520;color:#e0c984}:root[data-theme=dark] .pill.High{background:#40301e;color:#e5a566}:root[data-theme=dark] .pill.Urgent{background:#43231f;color:#f0958a}:root[data-theme=dark] .pill.Low{background:#233222;color:#9fd0a8}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 'IBM Plex Sans',system-ui,sans-serif;font-weight:400;background-color:var(--bg);background-image:repeating-linear-gradient(transparent 0 31px,var(--rule) 31px 32px);color:var(--ink)}
+body::before{content:none}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;background:url(/logo.png) center 55%/min(80vw,520px) no-repeat}
+h1,h2,h3,h4{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-weight:400;letter-spacing:.02em}
+header{display:flex;gap:12px;align-items:center;padding:10px 16px;background:var(--forest);color:var(--sand);flex-wrap:wrap;position:sticky;top:0;z-index:5;border-bottom:3px solid var(--sage)}
+header b{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-weight:400;letter-spacing:.14em;text-transform:uppercase;font-size:16px}
+header .muted{color:#E9D8BCbb}header .link{margin-left:auto;color:var(--sand);text-decoration:underline}
+.logo{height:32px;width:auto}
+main{padding:14px 12px 90px;max-width:900px;margin:auto;position:relative}
+/* red bookmark ribbon hanging from the header */
+main::before{content:"";position:absolute;top:0;right:14px;width:16px;height:38px;background:var(--red);clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);pointer-events:none;z-index:2}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--forest);border-top:1px solid #E9D8BC33}
+nav button{flex:1;padding:13px 4px;border:0;background:none;color:#E9D8BCaa;font:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sage);border-radius:10px;padding:12px 14px;margin:10px 0;display:grid;gap:8px;box-shadow:0 1px 4px var(--shadow)}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.bar{display:flex;gap:8px;flex-wrap:wrap}.bar input{flex:1;min-width:140px}
+input,select,button{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--clay);border-color:var(--clay)}
+label{display:grid;gap:4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
+button{cursor:pointer}
+button.primary{background:var(--forest);color:var(--sand);border-color:var(--forest);letter-spacing:.04em;font-weight:600}
+button.primary:hover{background:var(--clay);border-color:var(--clay);color:#fff}
+button.link{border:0;background:none;color:var(--accent);padding:4px;text-decoration:underline}
+.muted{color:var(--mut);font-size:13px}
+.msg{background:var(--soft);border:1px solid var(--sage);padding:9px 12px;border-radius:8px}
+.empty,.pad{padding:28px;text-align:center;color:var(--mut)}
+/* status badges: icon + colour + word */
+.pill{font-family:'DM Mono',monospace;font-size:11px;padding:2px 10px;border-radius:99px;background:#E3EDDF;color:#2F6B3A;font-weight:500;letter-spacing:.05em}
+.pill.Medium{background:#F3E6BF;color:#7A5A00}.pill.High{background:#F2D9C4;color:#8A4A18}.pill.Urgent{background:#F4D4CC;color:#9A2A1C}.pill.Low{background:#E3EDDF;color:#2F6B3A}
+.pill.Urgent::before{content:"▲ "}.pill.High::before{content:"◆ "}.pill.Medium::before{content:"● "}.pill.Low::before{content:"✓ "}
+.hello{position:relative;background:var(--forest);color:var(--sand);border-radius:12px;padding:18px 20px;margin-bottom:14px;border-bottom:4px solid var(--sage);overflow:hidden}
+.hello::after{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 26px 26px 0;border-color:transparent var(--bg) var(--sage) transparent}
+.hello h2{margin:0 0 2px}.hello p{margin:0;opacity:.85;font-family:'DM Mono',monospace;letter-spacing:.1em;font-size:12px;text-transform:uppercase}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-top:4px solid #3B4F96;border-radius:10px;padding:12px;box-shadow:0 1px 4px var(--shadow)}
+.stat:nth-child(5n+2){border-top-color:#1F6A71}.stat:nth-child(5n+3){border-top-color:#8A5A00}.stat:nth-child(5n+4){border-top-color:#9A3F1D}.stat:nth-child(5n){border-top-color:#46611F}
+.stat b{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-size:28px;font-weight:400;display:block;color:var(--ink)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px;margin-bottom:10px}
+.tile{display:grid;gap:2px;text-align:left;border:1px solid var(--line);border-top:4px solid var(--sage);border-radius:10px;background:var(--card);color:var(--ink);padding:10px}
+.tile b{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-size:22px;font-weight:400}.tile span{font-size:11px;color:var(--mut)}.tile.sel{outline:2px solid var(--accent);background:var(--selbg)}
+.search{width:100%;margin-bottom:6px}
+.conn{font-size:11px;letter-spacing:.06em}.conn.live{color:#8fd1a0}.conn.reconnecting,.conn.connecting{color:var(--sand)}.conn.offline{color:#e59a8f}
+.modal{position:fixed;inset:0;background:#231E1890;overflow:auto;padding:12px;z-index:10}.modal .card{max-width:440px;margin:auto}
+.login{max-width:380px;margin:9vh auto;padding:26px 22px;background:var(--forest);color:var(--sand);border:1px solid #E9D8BC33;border-left:1px solid #E9D8BC33;border-top:5px solid var(--red);border-radius:14px;box-shadow:0 12px 40px #231E1855}
+.login h1{text-align:center;margin:0;letter-spacing:.3em;text-transform:uppercase;font-size:24px;padding-left:.3em}
+.login .tag{text-align:center;margin:0 0 6px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#E9D8BCaa}
+.login .logo{display:block;margin:0 auto 4px;height:84px}
+.login label{color:#E9D8BCbb}.login input{background:#ffffff10;border-color:#E9D8BC44;color:#fff}
+.login button.primary{background:var(--sage);color:var(--forest);border-color:var(--sage)}.login button.primary:hover{background:#fff}
+.login button.link{color:var(--sand)}.login .msg{color:#231E18}
+
+nav{overflow-x:auto}nav button{min-width:76px;white-space:nowrap}
+.clockcard{text-align:center;justify-items:center;padding:20px}.clockcard .big{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-size:34px;font-weight:400}.clockcard button{min-width:180px;padding:14px;font-size:16px}
+
+.setrow{display:flex;gap:6px;align-items:center}.setrow input{flex:1;min-width:0}.setrow.fixed{justify-content:space-between;padding:6px 10px;border:1px dashed var(--line);border-radius:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:#9aa39c}.dot.on{background:#3fae5a;box-shadow:0 0 0 3px #3fae5a33}.dot.idle{background:#d6a23a}
+
+/* side menu: fixed sidebar on wide screens, slide-out drawer on phones. Each area has its own colour + icon. */
+nav{top:0;bottom:0;right:auto;width:210px;flex-direction:column;overflow-y:auto;padding-top:64px;border-top:0;border-right:1px solid #E9D8BC33;z-index:4}
+nav button{--ac:#8f8472;flex:none;display:flex;align-items:center;gap:12px;text-align:left;padding:10px 16px;min-width:0;font-size:13px;border-left:4px solid transparent}
+nav .ico{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:color-mix(in srgb,var(--ac) 22%,transparent);color:color-mix(in srgb,var(--ac) 55%,#fff)}
+nav .on{color:var(--sand);border-left-color:var(--ac);background:#ffffff0f;font-weight:600}
+nav .on .ico{background:var(--ac);color:#fff}
+nav .a-inq{--ac:#3B4F96}nav .a-pipe{--ac:#1F6A71}nav .a-fu{--ac:#8A5A00}nav .a-after{--ac:#9A3F1D}nav .a-ins{--ac:#46611F}nav .a-inv{--ac:#7A5A33}nav .a-team{--ac:#7A3D6B}nav .a-dash{--ac:#B9532F}
+.burger{display:none;border:0;background:none;color:var(--sand);font-size:24px;line-height:1;padding:2px 8px}
+.scrim{display:none}
+main{max-width:1000px;margin:0 auto 0 210px;padding:18px 24px 40px}
+@media(max-width:767px){
+  .burger{display:block}
+  nav{transform:translateX(-100%);transition:transform .2s;z-index:8;padding-top:20px;width:240px}
+  nav.open{transform:none;box-shadow:6px 0 24px #0008}
+  .scrim{display:block;position:fixed;inset:0;background:#0008;z-index:7}
+  main{margin:auto;padding:14px 12px 40px}
+}
+
+.grip{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border:0;background:none;color:var(--mut);font-size:20px;line-height:1;padding:8px 6px}
+.grip:active{cursor:grabbing}
+.dragging{outline:2px solid var(--accent);background:var(--selbg);border-radius:8px}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px}.checks input{flex:none;min-width:0;width:18px;height:18px;padding:0}
+
+/* Inventory v2: big, simple controls for technicians */
+.bigbtn{width:100%;padding:16px;font-size:17px;font-weight:600;border-radius:10px;min-height:56px}
+.bigbtn.go{background:var(--green);color:#fff;border-color:var(--green)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--forest);color:#E9D8BC;border-radius:8px;padding:6px 16px;font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-size:30px;font-weight:400;line-height:1.2}
+.chip.sm{font-size:16px;padding:3px 10px;border-radius:6px}
+.bignum{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-size:30px;font-weight:400;line-height:1;text-align:right}
+.bignum small{display:block;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:400;color:var(--mut)}
+.tap{cursor:pointer}
+.stepper{display:flex;gap:8px;align-items:center}.stepper button{width:52px;height:52px;font-size:26px;padding:0}.stepper input{text-align:center;font-size:24px;font-weight:600;height:52px;min-width:0}
+.warnbox{background:#F3E6BF;border:1px solid #D9B96A;border-radius:8px;padding:8px 12px;font-size:14px;color:#3a2e00}
+.okbox{background:#E3EDDF;border:1px solid #A9C8A8;border-radius:8px;padding:8px 12px;font-size:14px;color:#1d3a1f}
+
+/* ===== Diary pass: the screen is a ruled page on a kraft desk; the menu is the stitched cover ===== */
+:root{--desk:#D3BE98;--page:#FDF9EE;--pline:#D9E0DF;--margin:#D9776A;--hole:#D3BE98}
+:root[data-theme=dark]{--desk:#0F0D0A;--page:#2A231B;--pline:#3A3228;--margin:#8A3F33;--hole:#0F0D0A}
+body{background-color:var(--desk);background-image:none}
+body::after{content:none}
+main{background-color:var(--page);background-image:linear-gradient(90deg,transparent 55px,var(--margin) 55px 56px,transparent 56px 59px,var(--margin) 59px 60px,transparent 60px),repeating-linear-gradient(transparent 0 31px,var(--pline) 31px 32px);background-position:0 0,0 14px;border-radius:6px 14px 14px 6px;box-shadow:0 2px 0 #00000012,0 10px 28px #3a2e1a33,inset 0 0 0 1px #00000010;margin:16px 24px 28px 226px;max-width:none;min-height:calc(100vh - 110px);padding:22px 28px 56px 82px}
+main::after{content:"";position:absolute;left:14px;top:30px;bottom:30px;width:26px;pointer-events:none;background:radial-gradient(circle at 50% 50%,var(--hole) 0 8px,#00000030 8px 9px,transparent 9px) 0 0/26px 150px repeat-y}
+/* curled bottom corner */
+main > :last-child{position:relative}
+.hello h2{font-family:'Caveat','Saira Stencil One',cursive;font-weight:600;font-size:36px;letter-spacing:.01em;line-height:1.1}
+/* stitched leather cover */
+header{outline:1px dashed #C8A27A88;outline-offset:-5px}
+nav{outline:1px dashed #C8A27A66;outline-offset:-7px;background-image:linear-gradient(90deg,#ffffff08,transparent 30%)}
+nav button{border-radius:0 10px 10px 0;margin:2px 10px 2px 0}
+nav .on{background:color-mix(in srgb,var(--ac) 32%,transparent)}
+.card,.stat,.tile{background-color:var(--card)}
+.card{box-shadow:0 1px 0 #00000010,0 3px 8px var(--shadow)}
+@media(max-width:767px){
+  main{margin:10px 8px 20px 8px;padding:16px 12px 40px 50px;background-image:linear-gradient(90deg,transparent 39px,var(--margin) 39px 40px,transparent 40px 43px,var(--margin) 43px 44px,transparent 44px),repeating-linear-gradient(transparent 0 31px,var(--pline) 31px 32px);background-position:0 0,0 14px}
+  main::after{left:6px;width:22px;background-size:22px 150px}
+}
+
+/* ===== Fix: ribbon lives in the empty margin strip (never over content); proper dog-ear ===== */
+main::before{left:64px;right:auto;top:-16px;width:14px;height:50px;clip-path:polygon(0 0,100% 0,100% 100%,50% 80%,0 100%);z-index:1}
+.hello::after{border:0;width:26px;height:26px;background:linear-gradient(225deg,var(--page) 50%,#B8956A 50%);box-shadow:-1px 1px 2px #0003}
+@media(max-width:767px){
+  main::before{left:28px;width:10px;top:-10px;height:40px}
+}
+
+/* ===== Readability: stencil only for numbers + the app name; sentences and headings in plain type ===== */
+h1,h2,h3,h4{font-family:'IBM Plex Sans',system-ui,sans-serif;font-weight:600;letter-spacing:0}
+.hello h2{font-family:'IBM Plex Sans',system-ui,sans-serif;font-weight:600;font-size:26px;letter-spacing:0;line-height:1.2}
+.login h1{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-weight:400}
+
+/* ===== Login as a diary page: ruled paper, red margin, binder holes, ribbon, ink seal for the logo ===== */
+.login{position:relative;max-width:400px;background-color:#FDF9EE;color:#231E18;background-image:linear-gradient(90deg,transparent 47px,#D9776A 47px 48px,transparent 48px 51px,#D9776A 51px 52px,transparent 52px),repeating-linear-gradient(transparent 0 31px,#D9E0DF 31px 32px);background-position:0 0,0 14px;border:1px solid #D9CDB0;border-radius:6px 14px 14px 6px;padding:30px 24px 28px 68px;box-shadow:0 2px 0 #00000012,0 14px 40px #00000066}
+.login::before{content:"";position:absolute;top:-14px;left:56px;width:14px;height:52px;background:#B9532F;clip-path:polygon(0 0,100% 0,100% 100%,50% 80%,0 100%)}
+.login::after{content:"";position:absolute;left:12px;top:24px;bottom:24px;width:24px;pointer-events:none;background:radial-gradient(circle at 50% 50%,var(--desk) 0 8px,#00000030 8px 9px,transparent 9px) 0 0/24px 150px repeat-y}
+.login .logo{width:92px;height:92px;object-fit:contain;padding:14px;box-sizing:border-box;border-radius:50%;background:#231E18;box-shadow:0 0 0 3px #FDF9EE,0 0 0 4px #C8A27A}
+.login h1{color:#231E18}
+.login .tag{color:#6B5F4E}
+.login label{color:#6B5F4E}
+.login input{background:#fff;border-color:#D9CDB0;color:#231E18}
+.login button.primary{background:#231E18;color:#F3EBD8;border-color:#231E18}
+.login button.primary:hover{background:#B9532F;border-color:#B9532F;color:#fff}
+.login button.link{color:#B9532F}
+@media(max-width:480px){.login{margin:6vh 10px;padding-left:62px}}
+
+/* ===== Fix: big numbers must fit their card (they shrink instead of spilling) ===== */
+.stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.stat,.tile{container-type:inline-size;overflow:hidden;min-width:0}
+.stat b{font-size:22px;font-size:clamp(16px,15cqw,26px);white-space:nowrap;line-height:1.2}
+.tile b{font-size:20px;font-size:clamp(15px,16cqw,22px);white-space:nowrap}
+.bignum{font-size:26px}
+
+/* ===== Fix: spacing between button rows and the next block (not inside cards) ===== */
+.bar{margin-bottom:12px}
+.bigbtn{margin:12px 0}
+.card .bar,.modal .bar{margin-bottom:0}
+.card .bigbtn,.modal .bigbtn{margin:0}
+
+/* number boxes that shrink their text to fit (used on the Insights page) */
+.fitbox{container-type:inline-size;min-width:0}
+.fitbox .bignum{font-size:22px;font-size:clamp(15px,16cqw,26px);white-space:nowrap}
+
+/* ===== Logo watermark: faint winged bookmark in the lower-right corner of every page ===== */
+body::after{content:"";position:fixed;right:5vw;bottom:5vh;width:min(260px,40vw);aspect-ratio:1;background:url(/watermark.svg) center/contain no-repeat;pointer-events:none;z-index:1}
+:root[data-theme=dark] body::after{background-image:url(/watermark-dark.svg);opacity:1}
+
+nav .a-quo{--ac:#6B4E9B}
