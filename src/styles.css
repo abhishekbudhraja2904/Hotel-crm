@@ -119,3 +119,29 @@ nav .on{background:color-mix(in srgb,var(--ac) 32%,transparent)}
   main{margin:10px 8px 20px 8px;padding:16px 12px 40px 50px;background-image:linear-gradient(90deg,transparent 39px,var(--margin) 39px 40px,transparent 40px 43px,var(--margin) 43px 44px,transparent 44px),repeating-linear-gradient(transparent 0 31px,var(--pline) 31px 32px);background-position:0 0,0 14px}
   main::after{left:6px;width:22px;background-size:22px 150px}
 }
+
+/* ===== Fix: ribbon lives in the empty margin strip (never over content); proper dog-ear ===== */
+main::before{left:64px;right:auto;top:-16px;width:14px;height:50px;clip-path:polygon(0 0,100% 0,100% 100%,50% 80%,0 100%);z-index:1}
+.hello::after{border:0;width:26px;height:26px;background:linear-gradient(225deg,var(--page) 50%,#B8956A 50%);box-shadow:-1px 1px 2px #0003}
+@media(max-width:767px){
+  main::before{left:28px;width:10px;top:-10px;height:40px}
+}
+
+/* ===== Readability: stencil only for numbers + the app name; sentences and headings in plain type ===== */
+h1,h2,h3,h4{font-family:'IBM Plex Sans',system-ui,sans-serif;font-weight:600;letter-spacing:0}
+.hello h2{font-family:'IBM Plex Sans',system-ui,sans-serif;font-weight:600;font-size:26px;letter-spacing:0;line-height:1.2}
+.login h1{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-weight:400}
+
+/* ===== Login as a diary page: ruled paper, red margin, binder holes, ribbon, ink seal for the logo ===== */
+.login{position:relative;max-width:400px;background-color:#FDF9EE;color:#231E18;background-image:linear-gradient(90deg,transparent 47px,#D9776A 47px 48px,transparent 48px 51px,#D9776A 51px 52px,transparent 52px),repeating-linear-gradient(transparent 0 31px,#D9E0DF 31px 32px);background-position:0 0,0 14px;border:1px solid #D9CDB0;border-radius:6px 14px 14px 6px;padding:30px 24px 28px 68px;box-shadow:0 2px 0 #00000012,0 14px 40px #00000066}
+.login::before{content:"";position:absolute;top:-14px;left:56px;width:14px;height:52px;background:#B9532F;clip-path:polygon(0 0,100% 0,100% 100%,50% 80%,0 100%)}
+.login::after{content:"";position:absolute;left:12px;top:24px;bottom:24px;width:24px;pointer-events:none;background:radial-gradient(circle at 50% 50%,var(--desk) 0 8px,#00000030 8px 9px,transparent 9px) 0 0/24px 150px repeat-y}
+.login .logo{width:92px;height:92px;object-fit:contain;padding:14px;box-sizing:border-box;border-radius:50%;background:#231E18;box-shadow:0 0 0 3px #FDF9EE,0 0 0 4px #C8A27A}
+.login h1{color:#231E18}
+.login .tag{color:#6B5F4E}
+.login label{color:#6B5F4E}
+.login input{background:#fff;border-color:#D9CDB0;color:#231E18}
+.login button.primary{background:#231E18;color:#F3EBD8;border-color:#231E18}
+.login button.primary:hover{background:#B9532F;border-color:#B9532F;color:#fff}
+.login button.link{color:#B9532F}
+@media(max-width:480px){.login{margin:6vh 10px;padding-left:62px}}
