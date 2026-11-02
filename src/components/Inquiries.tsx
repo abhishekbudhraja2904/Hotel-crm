@@ -6,13 +6,15 @@ import ScheduleFollowup from './ScheduleFollowup'
 import LostReason from './LostReason'
 import Payments from './Payments'
 import ConfirmOrder from './ConfirmOrder'
+import Quotes from './Quotes'
+import QuoteForm from './QuoteForm'
 import { inr } from '../lib/money'
 import { moveStage } from '../lib/stage'
 
 export default function Inquiries({ me }: { me: any }) {
   const qc = useQueryClient()
   const { stages: STAGES } = useSettings()
-  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null)
+  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null), [quoFor, setQuoFor] = useState<any>(null), [quoFormFor, setQuoFormFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true)).data ?? [] })
   const [emp, setEmp] = useState('')
@@ -41,6 +43,7 @@ export default function Inquiries({ me }: { me: any }) {
     setMsg('')
     if (next === 'Lost' && r.sales_stage !== 'Lost') return setLostFor(r) // ask why first
     if (next === 'Order Confirmed' && r.sales_stage !== 'Order Confirmed') return setConfirmFor(r) // link products so stock can be locked
+    if (next === 'Quotation Sent' && r.sales_stage !== 'Quotation Sent') return setQuoFormFor(r) // record what is being quoted
     // updated_at guard: if another user saved first, 0 rows match and we refuse to overwrite.
     const { data, error } = await supabase.from('inquiries').update({ sales_stage: next })
       .eq('id', r.id).eq('updated_at', r.updated_at).select('id')
@@ -89,12 +92,14 @@ export default function Inquiries({ me }: { me: any }) {
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
-            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>
+            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>{me.role !== 'service' && <button className="link" onClick={() => setQuoFor(r)}>Quotations</button>}
             {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button><button className="link" onClick={() => del(r)}>Delete</button></>}
           </div>
         </div>
       ))}
       {confirmFor && <ConfirmOrder inquiry={confirmFor} onClose={() => setConfirmFor(null)} onConfirm={async () => { const e = await moveStage(confirmFor, 'Order Confirmed'); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); qc.invalidateQueries({ queryKey: ['inventory'] }); return e }} />}
+      {quoFormFor && <QuoteForm inquiry={quoFormFor} onClose={() => setQuoFormFor(null)} onSaved={async () => { const e = await moveStage(quoFormFor, 'Quotation Sent'); qc.invalidateQueries({ queryKey: ['inquiries'] }); return e }} onSkip={async () => { const e = await moveStage(quoFormFor, 'Quotation Sent'); qc.invalidateQueries({ queryKey: ['inquiries'] }); return e }} />}
+      {quoFor && <Quotes me={me} inquiry={quoFor} onClose={() => setQuoFor(null)} />}
       {payFor && <Payments me={me} inquiry={payFor} onClose={() => setPayFor(null)} />}
       {lostFor && <LostReason title={`${lostFor.customers?.customer_name ?? ''} · ${lostFor.inquiry_number}`} onClose={() => setLostFor(null)} onSave={async (reason, note) => { const e = await moveStage(lostFor, 'Lost', { lost_reason: reason, lost_note: note || null }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); return e }} />}
       {fuFor && <ScheduleFollowup me={me} inquiryId={fuFor.id} assignedTo={fuFor.assigned_to} title="Add a follow-up" subtitle={`${fuFor.customers?.customer_name ?? ''} · ${fuFor.inquiry_number}`} onClose={() => setFuFor(null)} />}

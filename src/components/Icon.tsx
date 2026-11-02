@@ -9,6 +9,7 @@ const P: Record<string, string> = {
   inv: 'M3 8l9-4 9 4v9l-9 4-9-4zM3 8l9 4 9-4M12 12v9',
   ins: 'M5 20V11M12 20V4M19 20v-6',
   team: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11a2.5 2.5 0 1 0 0-5M17 14c2.5.3 4 2.4 4 5',
+  quo: 'M7 3h8l4 4v14H7zM15 3v4h4M10 12h6M10 16h6',
   set: 'M5 7h9M18 7h1M5 17h1M10 17h9M14 4v6M8 14v6'
 }
 export default function Icon({ name, size = 20 }: { name: string; size?: number }) {

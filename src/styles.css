@@ -166,3 +166,5 @@ h1,h2,h3,h4{font-family:'IBM Plex Sans',system-ui,sans-serif;font-weight:600;let
 /* ===== Logo watermark: faint winged bookmark in the lower-right corner of every page ===== */
 body::after{content:"";position:fixed;right:5vw;bottom:5vh;width:min(260px,40vw);aspect-ratio:1;background:url(/watermark.svg) center/contain no-repeat;pointer-events:none;z-index:1}
 :root[data-theme=dark] body::after{background-image:url(/watermark-dark.svg);opacity:1}
+
+nav .a-quo{--ac:#6B4E9B}
