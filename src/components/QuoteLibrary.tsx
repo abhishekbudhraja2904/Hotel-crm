@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { inr } from '../lib/money'
 import { QSTATUS, qclass, one } from '../lib/quotes'
-const fmt = (d?: string | null) => (d ? new Date(d + 'T00:00:00').toLocaleDateString() : '')
+import { fmtDate as fmt } from '../lib/dates'
 // What was quoted to whom. Admin sees every quotation; sales sees only quotations on their own inquiries (the database enforces this).
 export default function QuoteLibrary() {
   const [q, setQ] = useState(''), [st, setSt] = useState(''), [who, setWho] = useState('')

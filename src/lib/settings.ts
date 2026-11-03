@@ -28,7 +28,8 @@ export function useSettings() {
     const { data, error } = await supabase.from('org_settings').select('key,value'); if (error) throw error
     return Object.fromEntries((data ?? []).map((r: any) => [r.key, r.value])) as Record<string, any> } })
   const s = data ?? {}
-  return { categories: list(s.categories, DEFAULT_CATEGORIES), sources: list(s.sources, DEFAULT_SOURCES), lostReasons: list(s.lostReasons, DEFAULT_LOST_REASONS), stages: normStages(s.stages), tiles: normTiles(s.tiles) }
+  const aco = s.autoClockOut ?? {}
+  return { gstRate: typeof s.gstRate === 'number' && s.gstRate >= 0 ? s.gstRate : 18, requireFullPayment: s.requireFullPayment === true, autoClockOut: { time: typeof aco.time === 'string' ? aco.time : '21:00', idleMinutes: Number(aco.idleMinutes) > 0 ? Number(aco.idleMinutes) : 60 }, categories: list(s.categories, DEFAULT_CATEGORIES), sources: list(s.sources, DEFAULT_SOURCES), lostReasons: list(s.lostReasons, DEFAULT_LOST_REASONS), stages: normStages(s.stages), tiles: normTiles(s.tiles) }
 }
 export async function saveSetting(key: string, value: any, by: string): Promise<string | null> {
   const { data: ex, error: e1 } = await supabase.from('org_settings').select('id').eq('key', key).maybeSingle()

@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabase'
 import { getTheme, setTheme, Theme } from '../lib/theme'
 import { useDragReorder } from '../lib/drag'
 import { useSettings, saveSetting, FIRST, LAST, DEFAULT_TILES, Tile } from '../lib/settings'
+import Catalogue from './Catalogue'
+import ExcelCard from './ExcelCard'
+import { PaymentRules, ClockRules, OfficeNetwork, StaffRules } from './SettingsExtra'
 
 type Row = { orig?: string; name: string }
 function ListEditor({ title, hint, fixedStart = [], fixedEnd = [], values, onSave }: { title: string; hint?: string; fixedStart?: string[]; fixedEnd?: string[]; values: string[]; onSave: (items: Row[], removed: string[]) => Promise<string | null> }) {
@@ -99,8 +102,14 @@ export default function Settings({ me }: { me: any }) {
         <div className="row" style={{ justifyContent: 'flex-start' }}>
           {(['light', 'dark', 'auto'] as Theme[]).map((t) => <button key={t} className={theme === t ? 'primary' : ''} onClick={() => pick(t)}>{t === 'auto' ? 'Match device' : t[0].toUpperCase() + t.slice(1)}</button>)}</div></div>
       <div className="card"><h3 style={{ margin: 0 }}>Your account</h3><div className="muted">{me.employee_name} · {me.email} · {me.role}</div></div>
+      {(isAdmin || me.role === 'sales') && <ExcelCard me={me} />}
       {isAdmin ? <>
         <h3>Company settings (admin only)</h3>
+        <Catalogue />
+        <PaymentRules me={me} />
+        <StaffRules me={me} />
+        <OfficeNetwork />
+        <ClockRules me={me} />
         <ListEditor title="Product categories" hint="Shown when adding an inquiry or a stock product. Renaming does not change old records." values={s.categories} onSave={(i) => saveList('categories', i)} />
         <ListEditor title="Inquiry sources" hint="Where an inquiry came from, e.g. IndiaMART. Renaming does not change old records." values={s.sources} onSave={(i) => saveList('sources', i)} />
         <ListEditor title="Reasons an inquiry is lost" hint="The choices shown when someone marks an inquiry Lost. Renaming does not change old records." values={s.lostReasons} onSave={(i) => saveList('lostReasons', i)} />

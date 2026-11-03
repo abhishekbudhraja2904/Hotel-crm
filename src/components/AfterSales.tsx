@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { fmtDate as fmt, isoDate } from '../lib/dates'
+import DateField from './DateField'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
-const today = () => new Date().toISOString().slice(0, 10)
-const fmt = (d?: string | null) => (d ? new Date(d + (d.length === 10 ? 'T00:00:00' : '')).toLocaleDateString() : '')
+const today = () => isoDate()
 const inWarranty = (u?: string | null) => !!u && u >= today()
 export default function AfterSales({ me }: { me: any }) {
   const qc = useQueryClient(), [tab, setTab] = useState<'inst' | 'tix' | 'find'>('inst'), [msg, setMsg] = useState('')
   const [form, setForm] = useState<'' | 'inst' | 'tix'>(''), [serialFor, setSerialFor] = useState<any>(null), [openId, setOpenId] = useState('')
-  const canWrite = me.role === 'admin' || me.role === 'service'
+  const canWrite = me.role === 'admin' || me.role === 'service' || me.role === 'sales' // may record installations and add serial numbers
+  const canTix = me.role === 'admin' || me.role === 'service' // may change a ticket's status
   const refresh = () => qc.invalidateQueries({ queryKey: ['aftersales'] })
   const inst = useQuery({ queryKey: ['aftersales', 'inst'], queryFn: async () => { const { data, error } = await supabase.from('installations').select('id,site_name,what,installed_on,warranty_until,warranty_months,notes,inquiry_id,employees:technician_id(employee_name),serials(id,serial_no,room,packing_no)').order('installed_on', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
   const tix = useQuery({ queryKey: ['aftersales', 'tix'], queryFn: async () => { const { data, error } = await supabase.from('service_tickets').select('id,seq,site_name,title,details,priority,status,opened_at,closed_at,installations(warranty_until),assigned:employees!assigned_to(employee_name)').order('opened_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
@@ -42,7 +44,7 @@ export default function AfterSales({ me }: { me: any }) {
           <div style={{ fontSize: 16 }}>{t.title}</div>
           <div className="muted">{t.site_name} · opened {fmt(t.opened_at)}{w ? (inWarranty(w) ? ' · in warranty' : ' · warranty over') : ''}{one(t.assigned)?.employee_name ? ` · ${one(t.assigned).employee_name}` : ''}</div>
           {t.details && <div className="muted">{t.details}</div>}
-          {canWrite ? <div className="bar">{['Open', 'In progress', 'Fixed'].map((s) => <button key={s} className={t.status === s ? 'primary' : ''} onClick={() => t.status !== s && setStatus(t, s)}>{s}</button>)}</div> : <span className="pill" style={{ justifySelf: 'start' }}>{t.status}</span>}
+          {canTix ? <div className="bar">{['Open', 'In progress', 'Fixed'].map((s) => <button key={s} className={t.status === s ? 'primary' : ''} onClick={() => t.status !== s && setStatus(t, s)}>{s}</button>)}</div> : <span className="pill" style={{ justifySelf: 'start' }}>{t.status}</span>}
         </div> })}</>}
       {tab === 'find' && <>
         <input placeholder="Type at least 3 characters of the serial number" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -70,7 +72,7 @@ function InstForm({ me, onClose, onDone }: { me: any; onClose: () => void; onDon
     <label>Site / hotel name<input required value={f.site} onChange={(e) => setF({ ...f, site: e.target.value })} /></label>
     <label>What was installed<input value={f.what} onChange={(e) => setF({ ...f, what: e.target.value })} /></label>
     <label>Technician<select value={f.tech} onChange={(e) => setF({ ...f, tech: e.target.value })}>{emps.data?.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>
-    <label>Installed on<input type="date" value={f.on} onChange={(e) => setF({ ...f, on: e.target.value })} /></label>
+    <label>Installed on<DateField value={f.on} onChange={(v) => setF({ ...f, on: v })} ariaLabel="Installed on" /></label>
     <label>Warranty (months)<input type="number" min="0" value={f.months} onChange={(e) => setF({ ...f, months: e.target.value })} /></label>
     <label>Notes<input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>
     {err && <p className="msg">{err}</p>}<button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button type="button" className="link" onClick={onClose}>Cancel</button></form></div>

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { inr } from '../lib/money'
 const iso = (d: number) => new Date(Date.now() - d * 86400000).toISOString()
-const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : '')
+import { fmtDate as fmt } from '../lib/dates'
 const cnt = async (q: any) => { const { count, error } = await q; if (error) throw error; return count ?? 0 }
 // Admin only: weekly summary, warranties ending, repeat customers, reorder suggestions. All figures are worked out from the live data.
 export default function Insights() {

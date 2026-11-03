@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { fmtDateTime } from '../lib/dates'
 const dur = (ms: number) => { const m = Math.max(0, Math.floor(ms / 60000)); return `${Math.floor(m / 60)}h ${m % 60}m` }
-const t = (s: string) => new Date(s).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+const t = (s: string) => fmtDateTime(s)
 export default function Attendance({ me }: { me: any }) {
   const qc = useQueryClient(), [msg, setMsg] = useState(''), [, tick] = useState(0)
   useEffect(() => { const i = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(i) }, [])
@@ -15,7 +16,7 @@ export default function Attendance({ me }: { me: any }) {
   const mine: any = data.find((r: any) => r.employee_id === me.id && !r.clock_out)
   async function act(fn: string, args?: any) {
     setMsg(''); const { error } = await supabase.rpc(fn, args); if (error) setMsg(error.message)
-    qc.invalidateQueries({ queryKey: ['attendance'] })
+    qc.invalidateQueries({ queryKey: ['attendance'] }); qc.invalidateQueries({ queryKey: ['clock'] })
   }
   const active = data.filter((r: any) => !r.clock_out)
   const name = (r: any) => (Array.isArray(r.employees) ? r.employees[0] : r.employees)?.employee_name ?? 'Employee'
@@ -23,7 +24,7 @@ export default function Attendance({ me }: { me: any }) {
     <section>
       {msg && <p className="msg">{msg}</p>}
       <div className="card clockcard">
-        <div className="muted">{mine ? `Clocked in since ${t(mine.clock_in)} (automatic at sign-in)` : 'You are clocked out'}</div>
+        <div className="muted">{mine ? `Clocked in since ${t(mine.clock_in)} ` : 'You are clocked out'}</div>
         {mine && <b className="big">{dur(Date.now() - +new Date(mine.clock_in))}</b>}
         {mine ? <button className="primary" onClick={() => act('clock_out')}>Clock out</button> : <button className="primary" onClick={() => act('clock_in')}>Clock in</button>}
       </div>

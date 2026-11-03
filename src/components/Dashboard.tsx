@@ -2,8 +2,14 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { inr } from '../lib/money'
 import { useSettings, Tile } from '../lib/settings'
+import LowStock from './LowStock'
+import InquiryBar, { useMoney } from './Progress'
+import { fmtDate, isoDate } from '../lib/dates'
 export default function Dashboard({ me }: { me?: any }) {
-  const { tiles } = useSettings()
+  const { tiles, stages } = useSettings(), money = useMoney()
+  const canInv = useQuery({ queryKey: ['inventory', 'can'], enabled: !!me?.active, queryFn: async () => !!(await supabase.rpc('can_update_inventory')).data })
+  const latest = useQuery({ queryKey: ['inquiries', 'latest'], queryFn: async () => {
+    const { data, error } = await supabase.from('inquiries').select('id,inquiry_number,sales_stage,updated_at,dispatched_at,packing_no,customers(customer_name,phone_number)').is('archived_at', null).order('updated_at', { ascending: false }).limit(10); if (error) throw error; return data as any[] } })
   const inq = useQuery({ queryKey: ['inquiries', 'dash'], queryFn: async () => {
     const { data, error } = await supabase.from('inquiries').select('sales_stage,created_at,updated_at,lost_reason').is('archived_at', null); if (error) throw error; return data } })
   const fu = useQuery({ queryKey: ['followups', 'dash'], queryFn: async () => {
@@ -37,14 +43,19 @@ export default function Dashboard({ me }: { me?: any }) {
   for (const r of lost) { const k = r.lost_reason || 'Not recorded'; counts[k] = (counts[k] ?? 0) + 1 }
   const rows = Object.entries(counts).sort((a, b) => b[1] - a[1])
   return <>
+    <LowStock detail={isAdmin || !!canInv.data} />
     <div className="stats">{cards.map(([k, v]) => <div className="stat" key={k}><b>{v}</b><span className="muted">{k}</span></div>)}</div>
-    {isAdmin && pend.data && pend.data.length > 0 && (() => { const today = new Date().toLocaleDateString('en-CA'), total = pend.data.reduce((n, x) => n + (x.value != null ? x.value - x.paid : 0), 0)
+    {isAdmin && pend.data && pend.data.length > 0 && (() => { const today = isoDate(), total = pend.data.reduce((n, x) => n + (x.value != null ? x.value - x.paid : 0), 0)
       return <div className="card" style={{ borderLeftColor: '#8A6F52' }}><div className="row"><b>Money to collect</b><b>{inr(total)}</b></div>
         <div className="muted">Confirmed orders that are not fully paid.</div>
         {pend.data.slice(0, 10).map(({ r, value, due, paid }) => <div className="row" key={r.id}><div><div>{r.customers?.customer_name} <span className="muted">· {r.inquiry_number}</span></div>
-          <div className="muted">{value == null ? 'Order value not entered' : `Received ${inr(paid)} of ${inr(value)}`}{due ? ` · due ${new Date(due + 'T00:00:00').toLocaleDateString()}` : ''}</div></div>
+          <div className="muted">{value == null ? 'Order value not entered' : `Received ${inr(paid)} of ${inr(value)}`}{due ? ` · due ${fmtDate(due)}` : ''}</div>
+          <InquiryBar r={{ id: r.id, sales_stage: 'Order Confirmed' }} stages={stages} money={money.data} /></div>
           <div style={{ textAlign: 'right' }}>{value != null && <b>{inr(value - paid)}</b>}{due && due < today && <div><span className="pill Urgent">Overdue</span></div>}</div></div>)}
         {pend.data.length > 10 && <div className="muted">…and {pend.data.length - 10} more.</div>}</div> })()}
+    {latest.data && latest.data.length > 0 && <div className="card"><b>Latest inquiries</b>
+      {latest.data.map((r) => <div key={r.id} style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}><div className="row"><span>{r.customers?.customer_name} <span className="muted">· {r.inquiry_number}</span></span><span className="muted">{r.customers?.phone_number ?? ''}</span></div>
+        <InquiryBar r={r} stages={stages} money={money.data} /></div>)}</div>}
     {rows.length > 0 && <div className="card"><div className="row"><b>Why inquiries are lost</b><span className="muted">{lost.length} total</span></div>
       {rows.map(([k, n]) => <div key={k} style={{ display: 'grid', gap: 3 }}><div className="row"><span>{k}</span><b>{n}</b></div>
         <div style={{ height: 8, borderRadius: 99, background: 'var(--line)' }}><div style={{ width: `${(n / lost.length) * 100}%`, height: 8, borderRadius: 99, background: 'var(--clay)' }} /></div></div>)}</div>}

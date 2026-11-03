@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { inr } from '../lib/money'
 import { QSTATUS, qclass, one } from '../lib/quotes'
 import QuoteForm from './QuoteForm'
-const fmt = (d?: string | null) => (d ? new Date(d + (d.length === 10 ? 'T00:00:00' : '')).toLocaleDateString() : '')
+import WhoFor from './WhoFor'
+import { fmtDate as fmt } from '../lib/dates'
 // Quotations recorded for one inquiry, with a button to record a new or revised one.
 export default function Quotes({ me, inquiry, onClose }: { me: any; inquiry: any; onClose: () => void }) {
   const qc = useQueryClient(), canWrite = me.role === 'admin' || me.role === 'sales', isAdmin = me.role === 'admin'
@@ -21,7 +22,7 @@ export default function Quotes({ me, inquiry, onClose }: { me: any; inquiry: any
   return (
     <div className="modal"><div className="card" style={{ maxWidth: 560 }}>
       <div className="row"><h3 style={{ margin: 0 }}>Quotations</h3><button className="link" onClick={onClose}>Close</button></div>
-      <div className="muted">{inquiry.customers?.customer_name ?? ''} · {inquiry.inquiry_number}</div>
+      <WhoFor inquiry={inquiry} />
       {msg && <p className="msg">{msg}</p>}
       {canWrite && <button className="primary" onClick={() => setAdding(true)}>{list.data?.length ? '+ Record a revised quotation' : '+ Record a quotation'}</button>}
       {list.isLoading && <p className="empty">Loading…</p>}
