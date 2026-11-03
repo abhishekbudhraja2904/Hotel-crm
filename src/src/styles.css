@@ -168,3 +168,22 @@ body::after{content:"";position:fixed;right:5vw;bottom:5vh;width:min(260px,40vw)
 :root[data-theme=dark] body::after{background-image:url(/watermark-dark.svg);opacity:1}
 
 nav .a-quo{--ac:#6B4E9B}
+
+/* ===== Release 2 additions ===== */
+.datef{display:flex;gap:6px;align-items:center;position:relative}
+.datef input:not(.hiddendate){flex:1;min-width:0}
+.calbtn{padding:6px 10px;min-width:40px}
+.hiddendate{position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0}
+.dtf{display:grid;gap:6px}.timef{display:flex;gap:6px}.timef select{flex:1}
+.whofor{background:var(--page);border:1px dashed var(--pline);border-radius:8px;padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.whofor b{font-size:17px}.whofor a{font-weight:600}
+.stbar{display:flex;gap:3px}.stbar i{flex:1;height:8px;border-radius:4px;background:var(--line)}
+.barwrap{display:grid;gap:3px;margin:6px 0 2px}.barnote{font-size:12px;color:var(--muted,#6B5F4E)}
+.paybar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}.paybar i{display:block;height:10px;border-radius:99px;background:#1F6B3A}.paybar.full i{background:#12D45A}
+.ptag{display:inline-block;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600}
+.ptag.lost{background:#F2D4CE;color:#8A2B1D}.ptag.hold{background:#E4E1DA;color:#5C574D}
+.tick{color:#12843A;font-weight:600}
+.locked{opacity:.5;pointer-events:none;user-select:none;filter:grayscale(.4)}
+.lockbar{background:#F3E6BF;border:1px solid #D9B96A;border-radius:8px;padding:10px 12px;margin:0 0 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;color:#3a2e00}
+.itemrow{margin:0}.pack-big{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-size:56px;line-height:1;color:var(--forest)}
+nav .a-svc{--ac:#2F6B5A}
