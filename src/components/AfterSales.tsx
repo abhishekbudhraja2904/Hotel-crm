@@ -12,8 +12,8 @@ export default function AfterSales({ me }: { me: any }) {
   const canWrite = me.role === 'admin' || me.role === 'service' || me.role === 'sales' // may record installations and add serial numbers
   const canTix = me.role === 'admin' || me.role === 'service' // may change a ticket's status
   const refresh = () => qc.invalidateQueries({ queryKey: ['aftersales'] })
-  const inst = useQuery({ queryKey: ['aftersales', 'inst'], queryFn: async () => { const { data, error } = await supabase.from('installations').select('id,site_name,what,installed_on,warranty_until,warranty_months,notes,inquiry_id,employees:technician_id(employee_name),serials(id,serial_no,room,packing_no)').order('installed_on', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
-  const tix = useQuery({ queryKey: ['aftersales', 'tix'], queryFn: async () => { const { data, error } = await supabase.from('service_tickets').select('id,seq,site_name,title,details,priority,status,opened_at,closed_at,installations(warranty_until),assigned:employees!assigned_to(employee_name)').order('opened_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
+  const inst = useQuery({ queryKey: ['aftersales', 'inst'], queryFn: async () => { const { data, error } = await supabase.from('installations').select('id,site_name,what,installed_on,warranty_until,warranty_months,notes,inquiry_id,employees:technician_id(employee_name),giver:employees!created_by(employee_name),inquiries(customers(customer_name,city)),serials(id,serial_no,room,packing_no)').order('installed_on', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
+  const tix = useQuery({ queryKey: ['aftersales', 'tix'], queryFn: async () => { const { data, error } = await supabase.from('service_tickets').select('id,seq,site_name,title,details,priority,status,opened_at,closed_at,installations(warranty_until,inquiries(customers(customer_name,city))),assigned:employees!assigned_to(employee_name),giver:employees!opened_by(employee_name)').order('opened_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
   async function setStatus(t: any, status: string) { const { error } = await supabase.from('service_tickets').update({ status }).eq('id', t.id); setMsg(error ? error.message : ''); refresh() }
   const [q, setQ] = useState('')
   const found = useQuery({ queryKey: ['aftersales', 'find', q], enabled: q.trim().length >= 3, queryFn: async () => { const { data, error } = await supabase.from('serials').select('id,serial_no,room,packing_no,installations(site_name,installed_on,warranty_until,employees:technician_id(employee_name))').ilike('serial_no', `%${q.trim()}%`).limit(20); if (error) throw error; return data as any[] } })
@@ -26,8 +26,9 @@ export default function AfterSales({ me }: { me: any }) {
         {canWrite && <button className="primary bigbtn go" onClick={() => setForm('inst')}>+ Record an installation</button>}
         {inst.data && !inst.data.length && <p className="empty">No installations recorded yet.</p>}
         {inst.data?.map((i) => <div className="card tap" key={i.id} style={{ borderLeftColor: inWarranty(i.warranty_until) ? '#6B8F72' : '#8b8f86' }} onClick={() => setOpenId(openId === i.id ? '' : i.id)}>
-          <div className="row"><b>{i.site_name}</b><span className={`pill${inWarranty(i.warranty_until) ? '' : ' Medium'}`}>{inWarranty(i.warranty_until) ? 'In warranty' : 'Warranty over'}</span></div>
+          <div className="row"><b>{one(one(i.inquiries)?.customers)?.customer_name ?? i.site_name}</b><span className={`pill${inWarranty(i.warranty_until) ? '' : ' Medium'}`}>{inWarranty(i.warranty_until) ? 'In warranty' : 'Warranty over'}</span></div>
           {i.what && <div>{i.what}</div>}
+          <div className="muted">{[i.site_name, one(one(i.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(i.giver)?.employee_name ? ` · Given by ${one(i.giver).employee_name}` : ''}</div>
           <div className="muted">Installed {fmt(i.installed_on)} by {one(i.employees)?.employee_name ?? 'n/a'} · warranty until {fmt(i.warranty_until)}</div>
           {openId === i.id && <div style={{ display: 'grid', gap: 6 }} onClick={(e) => e.stopPropagation()}>
             {i.notes && <div className="muted">{i.notes}</div>}
@@ -42,7 +43,8 @@ export default function AfterSales({ me }: { me: any }) {
         {tix.data?.map((t) => { const w = one(t.installations)?.warranty_until; return <div className="card" key={t.id} style={{ borderLeftColor: t.priority === 'High' ? '#9b3b30' : '#8A6F52', opacity: t.status === 'Fixed' ? 0.7 : 1 }}>
           <div className="row"><b>Ticket S-{String(t.seq).padStart(3, '0')}</b><span className={`pill ${t.priority === 'High' ? 'Urgent' : t.priority}`}>{t.priority}</span></div>
           <div style={{ fontSize: 16 }}>{t.title}</div>
-          <div className="muted">{t.site_name} · opened {fmt(t.opened_at)}{w ? (inWarranty(w) ? ' · in warranty' : ' · warranty over') : ''}{one(t.assigned)?.employee_name ? ` · ${one(t.assigned).employee_name}` : ''}</div>
+          <div className="muted">{[t.site_name, one(one(one(t.installations)?.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(t.giver)?.employee_name ? ` · Given by ${one(t.giver).employee_name}` : ''}</div>
+          <div className="muted">Opened {fmt(t.opened_at)}{w ? (inWarranty(w) ? ' · in warranty' : ' · warranty over') : ''}{one(t.assigned)?.employee_name ? ` · ${one(t.assigned).employee_name}` : ''}</div>
           {t.details && <div className="muted">{t.details}</div>}
           {canTix ? <div className="bar">{['Open', 'In progress', 'Fixed'].map((s) => <button key={s} className={t.status === s ? 'primary' : ''} onClick={() => t.status !== s && setStatus(t, s)}>{s}</button>)}</div> : <span className="pill" style={{ justifySelf: 'start' }}>{t.status}</span>}
         </div> })}</>}
