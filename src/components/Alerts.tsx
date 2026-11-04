@@ -17,7 +17,7 @@ export default function Alerts({ me }: { me: any }) {
   const a = all[0]
   if (!a || !me) return null
   const done = () => { const n = [...seen, a.key]; setSeen(n); save(n) }
-  const label = a.kind === 'paid' ? 'Payment received in full' : a.kind === 'packing' ? 'New packing work' : a.kind === 'installation' ? 'New installation job' : 'New service ticket'
+  const label = a.kind === 'paid' ? 'Payment received in full' : a.kind === 'collect' ? 'Packed and paid: collect' : a.kind === 'packing' ? 'New packing work' : a.kind === 'installation' ? 'New installation job' : 'New service ticket'
   return <div className="modal" style={{ zIndex: 30 }}><div className="card">
     <span className="pill Urgent" style={{ justifySelf: 'start' }}>{label}</span>
     {a.kind === 'paid' ? <>
@@ -25,13 +25,13 @@ export default function Alerts({ me }: { me: any }) {
       <div>The full payment for this order has been received.</div>
       <div className="muted">{a.inquiry_number ?? ''}{a.packing_no ? ` · packing no. ${a.packing_no}` : ''}</div>
     </> : <>
-      {a.packing_no && a.kind === 'packing' && <div style={{ fontSize: 44, fontWeight: 800, lineHeight: 1 }}>{a.packing_no}</div>}
+      {a.packing_no && (a.kind === 'packing' || a.kind === 'collect') && <div style={{ fontSize: 44, fontWeight: 800, lineHeight: 1 }}>{a.packing_no}</div>}
       <h3 style={{ margin: 0 }}>{a.customer}{a.city ? `, ${a.city}` : ''}</h3>
       <div className="muted">{a.title}</div>
       {a.items && <div>{a.items}</div>}
       {a.paid_pct != null && <div className="muted">Payment: {words(a.paid_pct)}</div>}
       {a.assigned_by && <div className="muted">Assigned by {a.assigned_by}</div>}
-      {a.kind === 'packing' && <div className="warnbox">Pack the items and mark every carton with the packing number.</div>}
+      {a.kind === 'collect' && <div className="okbox">Fully paid. Collect this order.</div>}{a.kind === 'packing' && <div className="warnbox">Pack the items and mark every carton with the packing number.</div>}
     </>}
     {all.length > 1 && <div className="muted">{all.length - 1} more waiting</div>}
     <button className="primary" onClick={done}>OK, seen</button>

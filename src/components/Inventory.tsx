@@ -16,7 +16,7 @@ export default function Inventory({ me }: { me: any }) {
   const can = useQuery({ queryKey: ['inventory', 'can'], queryFn: async () => !!(await supabase.rpc('can_update_inventory')).data })
   const keeper = useQuery({ queryKey: ['inventory', 'keeper'], queryFn: async () => ((await supabase.rpc('inventory_keeper_info')).data ?? [])[0] ?? null })
   const stock = useQuery({ queryKey: ['inventory', 'overview'], queryFn: async () => { const { data, error } = await supabase.rpc('stock_overview'); if (error) throw error; return data as any[] } })
-  const queue = useQuery({ queryKey: ['inventory', 'queue'], queryFn: async () => { const { data, error } = await supabase.rpc('dispatch_queue'); if (error) throw error; return data as any[] } })
+  const queue = useQuery({ queryKey: ['inventory', 'queue'], refetchInterval: 30000, queryFn: async () => { const { data, error } = await supabase.rpc('pack_queue'); if (error) throw error; return data as any[] } })
   const moves = useQuery({ queryKey: ['inventory', 'moves'], enabled: showMoves, queryFn: async () => { const { data, error } = await supabase.from('stock_movements').select('id,qty_change,reason,note,created_at,products(product_name),employees:created_by(employee_name)').order('created_at', { ascending: false }).limit(25); if (error) throw error; return data } })
   const canEdit = !!can.data, k = keeper.data
   async function takeBack() { if (!confirm('Take back stock updating from ' + k?.employee_name + '?')) return; const { error } = await supabase.rpc('clear_inventory_keeper'); setMsg(error ? error.message : ''); refresh() }
@@ -37,19 +37,20 @@ export default function Inventory({ me }: { me: any }) {
       </div>
       {canEdit && <div className="bar" style={{ margin: '10px 0' }}><button className="primary bigbtn go" onClick={() => setModal('receive')}>+ Stock came in</button></div>}
 
-      <h3>To collect ({queue.data?.length ?? 0})</h3>
-      {queue.data && !queue.data.length && <p className="empty">Nothing is waiting to be sent.</p>}
-      {queue.data?.map((r: any) => (
-        <div className="card" key={r.part_id} style={{ borderLeftColor: '#3f6b4a' }}>
-          <div className="muted">Packing number{r.part_no > 1 ? ` · part ${r.part_no}` : ''}</div>
+      <h3>Orders to pack and collect ({queue.data?.length ?? 0})</h3>
+      {queue.data && !queue.data.length && <p className="empty">Nothing is assigned to you right now.</p>}
+      {queue.data?.map((r: any) => { const col = r.state === 'collect'; return (
+        <div className="card" key={r.inquiry_id} style={{ borderLeftColor: col ? '#3f6b4a' : '#8A6F52' }}>
+          <div className="row"><span className="muted">Packing number</span><span className={`pill${col ? '' : ' Medium'}`}>{col ? 'COLLECT' : 'PACK'}</span></div>
           <div className="pack-big">{r.packing_no ?? '—'}</div>
-          <div className="warnbox">Pack the items below and mark every carton with packing number <b>{r.packing_no}</b>.</div>
+          {col ? <div className="okbox">Packed and fully paid. Collect this order, it is ready to go.</div>
+            : <div className="warnbox">Pack the items below and mark every carton with packing number <b>{r.packing_no}</b>.</div>}
           {r.items?.map((i: any, x: number) => <div key={x} style={{ fontSize: 16 }}><b>{n(i.qty)}</b>{i.unit ? ` ${i.unit}` : ''} × <b>{i.name}</b></div>)}
           <div><b>{r.customer}</b>{r.city ? ` · ${r.city}` : ''}</div>
           <div className="barwrap"><div className={`paybar${Number(r.paid_pct) >= 100 ? ' full' : ''}`}><i style={{ width: `${Math.min(100, Number(r.paid_pct) || 0)}%` }} /></div>
             <div className="barnote">{Number(r.paid_pct) >= 100 ? 'Payment received in full' : 'Payment not complete yet'}</div></div>
           <div className="muted">Assigned by {r.assigned_by ?? '—'}{r.packer ? ` · Packing: ${r.packer}` : ''}</div>
-        </div>))}
+        </div>) })}
 
       <h3>In store</h3>
       {stock.isLoading && <p className="empty">Loading…</p>}
