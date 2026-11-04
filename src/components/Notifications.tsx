@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { fmtDateTime } from '../lib/dates'
@@ -24,7 +24,14 @@ export function Bell() {
 }
 // A pop-up for the newest unread alert from the last day. After "OK" it is marked read and never pops up again, on any device.
 export function NotifyPopup() {
-  const { data } = useNotes(), read = useRead()
+  const { data } = useNotes(), read = useRead(), qc = useQueryClient()
+  // Instant: the moment a notification is saved for me, refresh the bell and the packing cards (no waiting for the 30-second check).
+  useEffect(() => {
+    const ch = supabase.channel('my-notifications').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+      qc.invalidateQueries({ queryKey: KEY }); qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['aftersales'] })
+    }).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [qc])
   const fresh = (data ?? []).filter((n) => !n.read_at && Date.now() - new Date(n.created_at).getTime() < 24 * 3600 * 1000)
   const a = fresh[0]
   if (!a) return null
