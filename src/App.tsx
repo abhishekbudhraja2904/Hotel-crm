@@ -11,7 +11,7 @@ import Pipeline from './components/Pipeline'
 import Team from './components/Team'
 import Attendance from './components/Attendance'
 import Inventory from './components/Inventory'
-import Alerts from './components/Alerts'
+import { Bell, NotifyPopup } from './components/Notifications'
 import Settings from './components/Settings'
 import AfterSales from './components/AfterSales'
 import Insights from './components/Insights'
@@ -61,9 +61,9 @@ function Shell({ session }: { session: any }) {
   const locked = manual && cs.data && !cs.data.clocked_in
   return (
     <>
-      <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<span className="muted">{me.employee_name} ({me.role})</span>
+      <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<Bell /><span className="muted">{me.employee_name} ({me.role})</span>
         <button className="link" onClick={signOut}>Sign out</button></header>
-      {!locked && <Alerts me={me} />}
+      {!locked && <NotifyPopup />}
       {locked && <LockBar status={cs.data} />}
       <main className={locked ? 'locked' : ''}>{cur === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{cur === 'dash' ? <Dashboard me={me} /> : cur === 'inq' ? <Inquiries me={me} /> : cur === 'pipe' ? <Pipeline /> : cur === 'fu' ? <Followups me={me} /> : cur === 'time' ? <Attendance me={me} /> : cur === 'inv' ? <Inventory me={me} /> : cur === 'set' ? <Settings me={me} /> : cur === 'after' ? <AfterSales me={me} /> : cur === 'ins' ? <Insights /> : cur === 'quo' ? <QuoteLibrary /> : cur === 'svc' ? <ServiceTeam /> : <Team />}</main>
       {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{items.map(([k, l]) => <button key={k} className={`a-${k}${cur === k ? ' on' : ''}`} onClick={() => { setTab(k as any); setMenu(false) }}><span className="ico"><Icon name={k} /></span>{l}</button>)}</nav>
