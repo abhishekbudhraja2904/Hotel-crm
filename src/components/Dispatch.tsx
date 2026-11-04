@@ -22,6 +22,12 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
     if (error) return setMsg(error.message); setQty({}); refresh()
   }
   async function cancel(id: string) { if (!confirm('Take this part back (it is not dispatched yet)?')) return; const { error } = await supabase.rpc('cancel_ready', { p_part: id }); setMsg(error ? error.message : ''); refresh() }
+  async function dispatchNow(id: string) {
+    const v = dk[id] ?? { no: '', courier: '' }
+    if (!v.courier.trim() || !v.no.trim()) return setMsg('Enter the courier name and the docket number to dispatch.')
+    if (!confirm('Dispatch this part? Stock will be reduced and the docket saved.')) return
+    const { error } = await supabase.rpc('dispatch_part', { p_part: id, p_docket: v.no, p_courier: v.courier }); setMsg(error ? error.message : 'Dispatched.'); refresh()
+  }
   async function docket(id: string, p: any) {
     const v = dk[id] ?? { no: p.docket_no ?? '', courier: p.courier_name ?? '' }
     const { error } = await supabase.rpc('set_docket', { p_part: id, p_docket: v.no, p_courier: v.courier }); setMsg(error ? error.message : 'Saved.'); refresh()
@@ -41,7 +47,7 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
       </>}
       {canAct && rem.length > 0 && <>
         <h4 style={{ margin: '8px 0 0' }}>{total ? 'Send the next part' : 'Ready to dispatch'}</h4>
-        <p className="muted" style={{ margin: 0 }}>Change the numbers to send only part of the order now. The store team will see this packing number and these items.</p>
+        <p className="muted" style={{ margin: 0 }}>Change the numbers to send only part of the order now. The store team will see this packing number and these items and collect them. You dispatch it yourself by entering the courier and docket.</p>
         {rem.map((b) => <label key={b.product_id}>{b.product_name} (up to {n(b.remaining)}{b.unit ? ' ' + b.unit : ''})<input type="number" min="0" max={Number(b.remaining)} step="any" value={val(b)} onChange={(e) => setQty({ ...qty, [b.product_id]: e.target.value })} /></label>)}
         <button className="primary" disabled={busy} onClick={ready}>{busy ? 'Saving…' : 'Mark ready to dispatch'}</button>
       </>}
@@ -49,14 +55,18 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
       {total > 0 && <h4 style={{ margin: '8px 0 0' }}>Parts</h4>}
       {parts.data?.map((p) => { const v = dk[p.id] ?? { no: p.docket_no ?? '', courier: p.courier_name ?? '' }; return (
         <div className="card" key={p.id} style={{ margin: 0 }}>
-          <div className="row"><b>Part {p.part_no}</b><span className={`pill${p.status === 'dispatched' ? '' : ' Medium'}`}>{p.status === 'dispatched' ? `Dispatched ${fmtDate(p.sent_at)}` : 'Ready, waiting for the store'}</span></div>
+          <div className="row"><b>Part {p.part_no}</b><span className={`pill${p.status === 'dispatched' ? '' : ' Medium'}`}>{p.status === 'dispatched' ? `Dispatched ${fmtDate(p.sent_at)}` : 'Ready, store is collecting'}</span></div>
           <div className="muted">Marked ready {fmtDateTime(p.ready_at)}</div>
           {(p.dispatch_part_items ?? []).map((i: any) => <div key={i.id}>{n(i.quantity)}{i.unit ? ` ${i.unit}` : ''} × {i.product_name}</div>)}
-          {p.status === 'ready' && canAct && <button className="link" onClick={() => cancel(p.id)}>Take this part back</button>}
+          {p.status === 'ready' && canAct && <div style={{ display: 'grid', gap: 6 }}>
+            <label>Courier / shipping service *<input value={v.courier} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, courier: e.target.value } })} /></label>
+            <label>Docket no. *<input value={v.no} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, no: e.target.value } })} /></label>
+            <button className="primary" onClick={() => dispatchNow(p.id)}>Dispatch</button>
+            <button className="link" onClick={() => cancel(p.id)}>Take this part back</button></div>}
           {p.status === 'dispatched' && (canAct ? <div style={{ display: 'grid', gap: 6 }}>
-            <label>Docket no. (optional)<input value={v.no} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, no: e.target.value } })} /></label>
-            <label>Courier name (optional)<input value={v.courier} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, courier: e.target.value } })} /></label>
-            <button onClick={() => docket(p.id, p)}>Save docket and courier</button>
+            <label>Docket no.<input value={v.no} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, no: e.target.value } })} /></label>
+            <label>Courier name<input value={v.courier} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, courier: e.target.value } })} /></label>
+            <button onClick={() => docket(p.id, p)}>Correct docket or courier</button>
             {p.docket_at && <div className="muted">Entered {fmtDate(p.docket_at)}</div>}</div> : (p.docket_no || p.courier_name) && <div className="muted">Docket {p.docket_no ?? '—'} · {p.courier_name ?? '—'}</div>)}
         </div>) })}
     </div></div>

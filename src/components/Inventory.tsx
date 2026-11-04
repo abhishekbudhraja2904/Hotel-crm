@@ -19,11 +19,6 @@ export default function Inventory({ me }: { me: any }) {
   const queue = useQuery({ queryKey: ['inventory', 'queue'], queryFn: async () => { const { data, error } = await supabase.rpc('dispatch_queue'); if (error) throw error; return data as any[] } })
   const moves = useQuery({ queryKey: ['inventory', 'moves'], enabled: showMoves, queryFn: async () => { const { data, error } = await supabase.from('stock_movements').select('id,qty_change,reason,note,created_at,products(product_name),employees:created_by(employee_name)').order('created_at', { ascending: false }).limit(25); if (error) throw error; return data } })
   const canEdit = !!can.data, k = keeper.data
-  const canSend = isAdmin || me.role === 'service' || canEdit // service admin only watches
-  async function dispatched(r: any) {
-    if (!confirm(`Packing no. ${r.packing_no}, part ${r.part_no}: have all these boxes been sent? The stock will be reduced.`)) return
-    const { error } = await supabase.rpc('confirm_dispatch', { p_part: r.part_id }); setMsg(error ? error.message : ''); refresh()
-  }
   async function takeBack() { if (!confirm('Take back stock updating from ' + k?.employee_name + '?')) return; const { error } = await supabase.rpc('clear_inventory_keeper'); setMsg(error ? error.message : ''); refresh() }
   const keeperLine = () => {
     if (!k) return isAdmin ? 'Nobody else is allowed to update stock right now.' : 'Only the admin can update stock right now.'
@@ -42,21 +37,17 @@ export default function Inventory({ me }: { me: any }) {
       </div>
       {canEdit && <div className="bar" style={{ margin: '10px 0' }}><button className="primary bigbtn go" onClick={() => setModal('receive')}>+ Stock came in</button></div>}
 
-      <h3>To dispatch ({queue.data?.length ?? 0})</h3>
+      <h3>To collect ({queue.data?.length ?? 0})</h3>
       {queue.data && !queue.data.length && <p className="empty">Nothing is waiting to be sent.</p>}
-      {queue.data?.map((r: any) => { const short = (r.items ?? []).filter((i: any) => Number(i.in_store) < Number(i.qty)), blocked = r.needs_payment && !r.cleared
-        return (
-        <div className="card" key={r.part_id} style={{ borderLeftColor: blocked ? '#8A6F52' : '#3f6b4a' }}>
-          <div className="muted">Packing number</div>
+      {queue.data?.map((r: any) => (
+        <div className="card" key={r.part_id} style={{ borderLeftColor: '#3f6b4a' }}>
+          <div className="muted">Packing number{r.part_no > 1 ? ` · part ${r.part_no}` : ''}</div>
           <div className="pack-big">{r.packing_no ?? '—'}</div>
-          <div className="row"><b>{r.customer}</b><span className="muted">Part {r.part_no} · {r.inquiry_number}</span></div>
           <div className="muted">Collect every carton marked {r.packing_no}</div>
           {r.items?.map((i: any, x: number) => <div key={x} style={{ fontSize: 16 }}><b>{n(i.qty)}</b>{i.unit ? ` ${i.unit}` : ''} × <b>{i.name}</b></div>)}
-          {short.length > 0 && <div className="warnbox">Not enough in store: {short.map((i: any) => `${i.name} (${n(i.in_store)} in store)`).join(', ')}.</div>}
-          {blocked && <div className="warnbox">⏳ Waiting for full payment. Do not send yet.</div>}
-          {canSend && !blocked && <button className="primary bigbtn go" onClick={() => dispatched(r)}>Dispatched ✓</button>}
-          {!canSend && <div className="muted">Waiting for the store team to mark it dispatched.</div>}
-        </div>) })}
+          <div><b>{r.customer}</b>{r.city ? ` · ${r.city}` : ''}</div>
+          <div className="muted">Assigned by {r.assigned_by ?? '—'}</div>
+        </div>))}
 
       <h3>In store</h3>
       {stock.isLoading && <p className="empty">Loading…</p>}

@@ -20,7 +20,7 @@ export default function Inquiries({ me }: { me: any }) {
   const { stages: STAGES } = useSettings()
   const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null), [quoFor, setQuoFor] = useState<any>(null), [quoFormFor, setQuoFormFor] = useState<any>(null), [editFor, setEditFor] = useState<any>(null), [dispFor, setDispFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
-  const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true)).data ?? [] })
+  const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const [emp, setEmp] = useState('')
   const [q, setQ] = useState(''), [stage, setStage] = useState(''), [open, setOpen] = useState(false), [msg, setMsg] = useState('')
   const { data = [], isLoading, error } = useQuery({

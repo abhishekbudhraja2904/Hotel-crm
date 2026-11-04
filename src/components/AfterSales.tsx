@@ -57,10 +57,10 @@ export default function AfterSales({ me }: { me: any }) {
     </section>
   )
 }
-function useEmps() { return useQuery({ queryKey: ['employees', 'active'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).order('employee_name')).data ?? [] }) }
+function useEmps() { return useQuery({ queryKey: ['employees', 'active'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).eq('role', 'service').order('employee_name')).data ?? [] }) }
 function InstForm({ me, onClose, onDone }: { me: any; onClose: () => void; onDone: (row: any) => void }) {
   const emps = useEmps(), orders = useQuery({ queryKey: ['aftersales', 'orders'], queryFn: async () => (await supabase.rpc('installable_orders')).data as any[] ?? [] })
-  const [f, setF] = useState({ order: '', site: '', what: '', tech: me.id as string, on: today(), months: '12', notes: '' }), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  const [f, setF] = useState({ order: '', site: '', what: '', tech: '' as string, on: today(), months: '12', notes: '' }), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
   const pick = (id: string) => { const o = orders.data?.find((x: any) => x.inquiry_id === id); setF({ ...f, order: id, site: o ? o.customer : f.site, what: o ? o.items ?? '' : f.what }) }
   async function save(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr('')
@@ -71,7 +71,7 @@ function InstForm({ me, onClose, onDone }: { me: any; onClose: () => void; onDon
     <label>Dispatched order (optional)<select value={f.order} onChange={(e) => pick(e.target.value)}><option value="">Not from the list</option>{orders.data?.map((o: any) => <option key={o.inquiry_id} value={o.inquiry_id}>{o.customer} · {o.inquiry_number}</option>)}</select></label>
     <label>Site / hotel name<input required value={f.site} onChange={(e) => setF({ ...f, site: e.target.value })} /></label>
     <label>What was installed<input value={f.what} onChange={(e) => setF({ ...f, what: e.target.value })} /></label>
-    <label>Technician<select value={f.tech} onChange={(e) => setF({ ...f, tech: e.target.value })}>{emps.data?.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>
+    <label>Technician<select value={f.tech} onChange={(e) => setF({ ...f, tech: e.target.value })}><option value="">Choose…</option>{emps.data?.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>
     <label>Installed on<DateField value={f.on} onChange={(v) => setF({ ...f, on: v })} ariaLabel="Installed on" /></label>
     <label>Warranty (months)<input type="number" min="0" value={f.months} onChange={(e) => setF({ ...f, months: e.target.value })} /></label>
     <label>Notes<input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>
