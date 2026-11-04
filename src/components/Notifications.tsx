@@ -3,10 +3,43 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { fmtDateTime } from '../lib/dates'
 const KEY = ['notifications']
+const VAPID = 'BFBqiPeaizvU3ynOF2vBlZInVfmXqslg-Q-ppN2KDHM09BdRDu4KEAzGrnh7mkBuI7pX4FGSLsl2JUdeJ19qReM'
+const b64 = (s: string) => { const p = '='.repeat((4 - (s.length % 4)) % 4), r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...r].map((c) => c.charCodeAt(0))) }
 function useNotes() {
   return useQuery({ queryKey: KEY, refetchInterval: 30000, refetchOnWindowFocus: true, queryFn: async () => { const { data } = await supabase.from('notifications').select('id,kind,title,body,created_at,read_at').order('created_at', { ascending: false }).limit(60); return (data as any[]) ?? [] } })
 }
 function useRead() { const qc = useQueryClient(); return async (ids: string[] | null) => { await supabase.rpc('mark_notifications_read', { p_ids: ids }); qc.invalidateQueries({ queryKey: KEY }) } }
+// Turn phone notifications on or off for this phone / browser.
+function PhoneToggle() {
+  const ok = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+  const [on, setOn] = useState(false), [msg, setMsg] = useState(''), [busy, setBusy] = useState(false)
+  useEffect(() => { if (!ok) return; navigator.serviceWorker.ready.then((r) => r.pushManager.getSubscription()).then((s) => setOn(!!s)).catch(() => {}) }, [ok])
+  if (!ok) return <p className="muted">Phone notifications are not available in this browser. On iPhone, add the app to the Home Screen first (Share, then Add to Home Screen) and open it from there.</p>
+  async function turnOn() {
+    setBusy(true); setMsg('')
+    try {
+      const perm = await Notification.requestPermission()
+      if (perm !== 'granted') throw new Error('Notifications are blocked. Allow them for this site in the browser settings.')
+      const reg = await navigator.serviceWorker.ready
+      const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(VAPID) }))
+      const j: any = sub.toJSON()
+      const { error } = await supabase.rpc('save_push_subscription', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth })
+      if (error) throw error
+      setOn(true); setMsg('Done. This phone will now get notifications.')
+    } catch (e: any) { setMsg(e.message ?? 'Could not turn on') }
+    setBusy(false)
+  }
+  async function turnOff() {
+    setBusy(true); const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription()
+    if (sub) { await supabase.rpc('remove_push_subscription', { p_endpoint: sub.endpoint }); await sub.unsubscribe() }
+    setOn(false); setBusy(false); setMsg('Turned off on this phone.')
+  }
+  return <div className="okbox" style={{ display: 'grid', gap: 6 }}>
+    <b>Phone notifications: {on ? 'ON' : 'OFF'}</b>
+    {on ? <button disabled={busy} onClick={turnOff}>Turn off on this phone</button> : <button className="primary" disabled={busy} onClick={turnOn}>Turn on notifications</button>}
+    {msg && <span className="muted">{msg}</span>}
+  </div>
+}
 const tone = (k: string) => (k === 'paid' ? '#6B8F72' : k === 'collect' ? '#3f6b4a' : '#8A6F52')
 // The bell in the top bar: every alert is kept here, newest first.
 export function Bell() {
@@ -16,6 +49,7 @@ export function Bell() {
     <button aria-label="Notifications" onClick={() => setOpen(true)} style={{ position: 'relative', fontSize: 20, padding: '0 8px', background: 'none', border: 0, marginLeft: 'auto' }}>🔔{unread > 0 && <span style={{ position: 'absolute', top: -6, right: -2, background: '#9b3b30', color: '#fff', borderRadius: 10, fontSize: 11, padding: '1px 6px', fontWeight: 700 }}>{unread}</span>}</button>
     {open && <div className="modal" onClick={() => setOpen(false)}><div className="card" onClick={(e) => e.stopPropagation()}>
       <div className="row"><h3 style={{ margin: 0 }}>Notifications</h3>{unread > 0 && <button className="link" onClick={() => read(null)}>Mark all as read</button>}</div>
+      <PhoneToggle />
       {data && !data.length && <p className="empty">Nothing yet.</p>}
       {data?.map((n) => <div key={n.id} className="card" style={{ borderLeftColor: tone(n.kind), opacity: n.read_at ? 0.65 : 1 }} onClick={() => !n.read_at && read([n.id])}>
         <b>{n.title}</b>{n.body && <div className="muted">{n.body}</div>}<div className="muted">{fmtDateTime(n.created_at)}{n.read_at ? '' : ' · new'}</div></div>)}
