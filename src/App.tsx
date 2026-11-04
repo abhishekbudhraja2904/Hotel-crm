@@ -54,7 +54,7 @@ function Shell({ session }: { session: any }) {
   const items: string[][] = me.role === 'service'
     ? [['after', 'Jobs'], ['inv', 'Inventory'], ['time', 'Clock'], ['set', 'Settings']]
     : me.role === 'service_admin'
-    ? [['svc', 'Service team'], ['inv', 'Inventory'], ['time', 'Clock'], ['set', 'Settings']]
+    ? [['svc', 'Service team'], ['after', 'Give work'], ['inv', 'Inventory'], ['time', 'Clock'], ['set', 'Settings']]
     : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['quo', 'Quotations'], ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['after', 'After-sales'], ...(me.role === 'admin' ? [['svc', 'Service team']] : []), ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['ins', 'Insights'], ['team', 'Team']] : canInv.data ? [['inv', 'Inventory']] : []), ['set', 'Settings']]
   const cur = items.some(([k]) => k === tab) ? tab : items[0][0] // a technician opens straight on Jobs
   if (manual && cs.data && !cs.data.clocked_in && !unlocked) return <ClockGate me={me} status={cs.data} />
