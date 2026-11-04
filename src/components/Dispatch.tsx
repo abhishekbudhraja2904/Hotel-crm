@@ -11,7 +11,9 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
   const bal = useQuery({ queryKey: ['dispatch', 'bal', inquiry.id], queryFn: async () => { const { data, error } = await supabase.rpc('order_balance', { p_inq: inquiry.id }); if (error) throw error; return data as any[] } })
   const parts = useQuery({ queryKey: ['dispatch', 'parts', inquiry.id], queryFn: async () => {
     const { data, error } = await supabase.from('dispatch_parts').select('id,part_no,status,ready_at,sent_at,docket_no,courier_name,docket_at,dispatch_part_items(id,product_name,quantity,unit)').eq('inquiry_id', inquiry.id).order('part_no'); if (error) throw error; return data as any[] } })
-  const pk = useQuery({ queryKey: ['dispatch', 'pk', inquiry.id], queryFn: async () => (await supabase.from('inquiries').select('packing_no,packing_year').eq('id', inquiry.id).maybeSingle()).data })
+  const pk = useQuery({ queryKey: ['dispatch', 'pk', inquiry.id], queryFn: async () => (await supabase.from('inquiries').select('packing_no,packing_year,packer_id').eq('id', inquiry.id).maybeSingle()).data })
+  const techs = useQuery({ queryKey: ['employees', 'service'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).eq('role', 'service').order('employee_name')).data ?? [] })
+  async function setPacker(id: string) { const { error } = await supabase.rpc('assign_packer', { p_inq: inquiry.id, p_emp: id || null }); setMsg(error ? error.message : ''); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
   const refresh = () => { qc.invalidateQueries({ queryKey: ['dispatch'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['inventory'] }) }
   const rem = (bal.data ?? []).filter((b) => Number(b.remaining) > 0)
   const val = (b: any) => qty[b.product_id] ?? String(Number(b.remaining))
@@ -38,6 +40,7 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
       <div className="row"><h3 style={{ margin: 0 }}>Dispatch</h3><button className="link" onClick={onClose}>Close</button></div>
       <WhoFor inquiry={inquiry} />
       {pk.data?.packing_no ? <div><div className="muted">Packing number for this whole order</div><div className="pack-big">{pk.data.packing_no}</div></div> : <p className="muted">No packing number yet.</p>}
+      {canAct && <label>Packing assigned to<select value={pk.data?.packer_id ?? ''} onChange={(e) => setPacker(e.target.value)}><option value="">Not assigned</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{t.employee_name}</option>)}</select></label>}
       {msg && <p className="msg">{msg}</p>}
       {bal.isLoading && <p className="empty">Loading…</p>}
       {bal.data && !bal.data.length && <p className="warnbox">This order has no catalogue products, so nothing can be dispatched from here. Use "Edit items" (admin) to add them.</p>}

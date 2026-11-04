@@ -43,10 +43,12 @@ export default function Inventory({ me }: { me: any }) {
         <div className="card" key={r.part_id} style={{ borderLeftColor: '#3f6b4a' }}>
           <div className="muted">Packing number{r.part_no > 1 ? ` · part ${r.part_no}` : ''}</div>
           <div className="pack-big">{r.packing_no ?? '—'}</div>
-          <div className="muted">Collect every carton marked {r.packing_no}</div>
+          <div className="warnbox">Pack the items below and mark every carton with packing number <b>{r.packing_no}</b>.</div>
           {r.items?.map((i: any, x: number) => <div key={x} style={{ fontSize: 16 }}><b>{n(i.qty)}</b>{i.unit ? ` ${i.unit}` : ''} × <b>{i.name}</b></div>)}
           <div><b>{r.customer}</b>{r.city ? ` · ${r.city}` : ''}</div>
-          <div className="muted">Assigned by {r.assigned_by ?? '—'}</div>
+          <div className="barwrap"><div className={`paybar${Number(r.paid_pct) >= 100 ? ' full' : ''}`}><i style={{ width: `${Math.min(100, Number(r.paid_pct) || 0)}%` }} /></div>
+            <div className="barnote">{Number(r.paid_pct) >= 100 ? 'Payment received in full' : 'Payment not complete yet'}</div></div>
+          <div className="muted">Assigned by {r.assigned_by ?? '—'}{r.packer ? ` · Packing: ${r.packer}` : ''}</div>
         </div>))}
 
       <h3>In store</h3>
