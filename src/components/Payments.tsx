@@ -14,7 +14,7 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
   const { data, isLoading } = useQuery({ queryKey: key, queryFn: async () => {
     const f = await supabase.from('order_finance').select('order_value,balance_due_on,base_value,gst_mode,gst_rate,gst_amount,courier_charges').eq('inquiry_id', inquiry.id).maybeSingle(); if (f.error) throw f.error
     const p = await supabase.from('payments').select('id,amount,paid_on,note,created_at,employees:created_by(employee_name)').eq('inquiry_id', inquiry.id).order('paid_on', { ascending: false }).order('created_at', { ascending: false }); if (p.error) throw p.error
-    const q = await supabase.from('quotations').select('quotation_number,version,total_amount').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false }).limit(1); if (q.error) throw q.error
+    const q = await supabase.from('quotations').select('quotation_number,version,total_amount,freight_charges').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false }).limit(1); if (q.error) throw q.error
     return { fin: f.data, pays: p.data as any[], quote: (q.data?.[0] ?? null) as any } } })
   const [base, setBase] = useState<string | null>(null), [mode, setMode] = useState<'plus' | 'inclusive' | null>(null), [courier, setCourier] = useState<string | null>(null), [due, setDue] = useState<string | null>(null)
   const [amt, setAmt] = useState(''), [on, setOn] = useState(isoDate()), [note, setNote] = useState('')
@@ -24,7 +24,7 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
   const legacy = !!fin && fin.base_value == null // entered before GST existed: treat as the final total
   const baseStr = base ?? (fin ? String(Number(fin.base_value ?? fin.order_value)) : data?.quote ? String(Number(data.quote.total_amount)) : '')
   const m = mode ?? (fin ? ((fin.gst_mode as any) ?? 'inclusive') : 'plus')
-  const courierStr = courier ?? (fin ? String(Number(fin.courier_charges ?? 0) || '') : '')
+  const courierStr = courier ?? (fin ? String(Number(fin.courier_charges ?? 0) || '') : data?.quote ? String(Number(data.quote.freight_charges ?? 0) || '') : '')
   const rate = fin?.gst_rate != null && base === null && mode === null ? Number(fin.gst_rate) : gstRate
   const B = Number(baseStr) || 0, C = Number(courierStr) || 0
   const gst = legacy && base === null && mode === null ? 0 : m === 'plus' ? r2((B * rate) / 100) : r2(B - B / (1 + rate / 100))
@@ -68,7 +68,7 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
         <div className="bar">
           <button type="button" className={m === 'plus' ? 'primary' : ''} onClick={() => setMode('plus')}>+ GST ({rate}%)</button>
           <button type="button" className={m === 'inclusive' ? 'primary' : ''} onClick={() => setMode('inclusive')}>Inclusive of GST</button></div>
-        <label>Courier charges (₹, paid by the buyer, optional)<input type="number" min="0" step="any" value={courierStr} onChange={(e) => setCourier(e.target.value)} /></label>
+        <label>Freight / courier charges (₹, paid by the buyer, optional)<input type="number" min="0" step="any" value={courierStr} onChange={(e) => setCourier(e.target.value)} /></label>
         <label>Balance due on<DateField value={due ?? fin?.balance_due_on ?? ''} onChange={setDue} ariaLabel="Balance due date" /></label>
         {B > 0 && <div className="warnbox" style={{ display: 'grid', gap: 3 }}>
           <div className="row"><span>Order value{m === 'inclusive' ? ' (GST included)' : ''}</span><span>{inr(B)}</span></div>
