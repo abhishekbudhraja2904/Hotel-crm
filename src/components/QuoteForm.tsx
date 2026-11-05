@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import WhoFor from './WhoFor'
+import { useSettings } from '../lib/settings'
+import { inr } from '../lib/money'
 import ItemsEditor, { ItemRow, newRow, rowsFromItems, useCatalogue } from './ItemsEditor'
 // "Record the quotation": the inquiry's items come pre-filled; check the quantity, type the price. Opens when an inquiry is moved to Quotation Sent.
 export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inquiry: any; onClose: () => void; onSaved?: () => Promise<string | null>; onSkip?: () => Promise<string | null> }) {
-  const qc = useQueryClient(), [rows, setRows] = useState<ItemRow[] | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false), [number, setNumber] = useState<string | null>(null), [inst, setInst] = useState(''), [freight, setFreight] = useState('')
+  const qc = useQueryClient(), [rows, setRows] = useState<ItemRow[] | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false), [number, setNumber] = useState<string | null>(null), [inst, setInst] = useState(''), [freight, setFreight] = useState(''), [mode, setMode] = useState<'plus' | 'inclusive'>('plus'), [rateStr, setRateStr] = useState<string | null>(null), { gstRate } = useSettings()
   const cat = useCatalogue()
   const items = useQuery({ queryKey: ['quote-items', inquiry.id], queryFn: async () => {
     const { data, error } = await supabase.from('inquiry_items').select('id,product_id,product_name_snapshot,quantity,unit').eq('inquiry_id', inquiry.id).order('created_at'); if (error) throw error; return data as any[] } })
@@ -15,6 +17,9 @@ export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inqui
   const ready = cat.data && items.data && last.data !== undefined
   if (ready && rows === null) { const init = rowsFromItems(items.data!, cat.data!); setRows(init.length ? init : [newRow()]) }
   const R = rows ?? []
+  const rate = rateStr === null ? gstRate : Number(rateStr) || 0
+  const sub = R.reduce((a, l) => a + (Number(l.qty) > 0 && l.price ? Number(l.qty) * Number(l.price) : 0), 0) + (Number(inst) || 0), F = Number(freight) || 0
+  const gst = mode === 'plus' ? Math.round(sub * rate) / 100 : Math.round((sub - sub / (1 + rate / 100)) * 100) / 100, payable = (mode === 'plus' ? sub + gst : sub) + F
   const done = async () => { qc.invalidateQueries({ queryKey: ['quotes'] }); qc.invalidateQueries({ queryKey: ['quote-library'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   async function save() {
     setErr('')
@@ -27,7 +32,7 @@ export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inqui
       if (!l.price || Number(l.price) < 0) return setErr(`Enter the price for ${p.product_name}.`)
     }
     setBusy(true)
-    const { error } = await supabase.rpc('create_quotation', { p_inquiry: inquiry.id, p_number: numVal.trim(), p_installation: Number(inst) || 0, p_freight: Number(freight) || 0, p_lines: R.map((l) => { const p = prods.find((x) => x.id === l.pid)!; return { product_id: p.id, name: p.product_name, quantity: Number(l.qty), unit: p.unit || null, unit_price: Number(l.price) } }) })
+    const { error } = await supabase.rpc('create_quotation', { p_inquiry: inquiry.id, p_number: numVal.trim(), p_installation: Number(inst) || 0, p_freight: Number(freight) || 0, p_gst_mode: mode, p_gst_rate: rate, p_lines: R.map((l) => { const p = prods.find((x) => x.id === l.pid)!; return { product_id: p.id, name: p.product_name, quantity: Number(l.qty), unit: p.unit || null, unit_price: Number(l.price) } }) })
     if (error) { setBusy(false); return setErr(error.message) }
     const e = onSaved ? await onSaved() : null
     setBusy(false); await done()
@@ -43,8 +48,18 @@ export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inqui
         <span className="muted" style={{ textTransform: 'none', letterSpacing: 0, fontFamily: 'inherit', fontSize: 12 }}>Type it yourself. Use the same number again to record a revised version.</span></label>}
       {ready && <ItemsEditor rows={R} onChange={setRows} showPrice keepOne />}
       {ready && <label>Installation charges (₹, optional)<input type="number" min="0" step="any" value={inst} onChange={(e) => setInst(e.target.value)} placeholder="Leave empty if not charged" /></label>}
+      {ready && <div style={{ display: 'grid', gap: 6 }}>
+        <div className="bar">
+          <button type="button" className={mode === 'plus' ? 'primary' : ''} onClick={() => setMode('plus')}>+ GST ({rate}%)</button>
+          <button type="button" className={mode === 'inclusive' ? 'primary' : ''} onClick={() => setMode('inclusive')}>Prices include GST</button></div>
+        <label>GST rate (%)<input type="number" min="0" max="100" step="any" value={rateStr ?? String(gstRate)} onChange={(e) => setRateStr(e.target.value)} /></label></div>}
       {ready && <label>Freight / courier charges (₹, paid by the buyer, optional)<input type="number" min="0" step="any" value={freight} onChange={(e) => setFreight(e.target.value)} placeholder="Leave empty if not charged" />
         <span className="muted" style={{ textTransform: 'none', letterSpacing: 0, fontFamily: 'inherit', fontSize: 12 }}>Not part of the total above, no GST on it. It is picked up automatically when the order is confirmed.</span></label>}
+      {ready && sub > 0 && <div className="warnbox" style={{ display: 'grid', gap: 3 }}>
+        <div className="row"><span>Items{Number(inst) > 0 ? ' + installation' : ''}{mode === 'inclusive' ? ' (GST included)' : ''}</span><span>{inr(sub)}</span></div>
+        <div className="row"><span>{mode === 'plus' ? `GST ${rate}% (added)` : `GST ${rate}% (already inside)`}</span><span>{mode === 'plus' ? '+ ' : ''}{inr(gst)}</span></div>
+        {F > 0 && <div className="row"><span>Freight (added, no GST)</span><span>+ {inr(F)}</span></div>}
+        <div className="row"><b>Total to receive</b><b>{inr(payable)}</b></div></div>}
       {err && <p className="msg">{err}</p>}
       <div className="bar"><button className="primary" disabled={busy || !ready} onClick={save}>{busy ? 'Saving…' : onSaved ? 'Save and mark Quotation Sent' : 'Save quotation'}</button>
         {onSkip && <button disabled={busy} onClick={skip}>Skip, just move the stage</button>}<button disabled={busy} onClick={onClose}>Cancel</button></div>

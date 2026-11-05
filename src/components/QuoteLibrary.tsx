@@ -8,7 +8,7 @@ import { fmtDate as fmt } from '../lib/dates'
 export default function QuoteLibrary() {
   const [q, setQ] = useState(''), [st, setSt] = useState(''), [who, setWho] = useState('')
   const { data, isLoading, error } = useQuery({ queryKey: ['quote-library'], queryFn: async () => {
-    const { data, error } = await supabase.from('quotations').select('id,quotation_number,version,quotation_date,total_amount,installation_charges,freight_charges,status,creator:created_by(employee_name),inquiries(inquiry_number,customers(customer_name)),quotation_lines(id,product_name,quantity,unit,unit_price,line_total)').order('created_at', { ascending: false }).limit(500)
+    const { data, error } = await supabase.from('quotations').select('id,quotation_number,version,quotation_date,total_amount,installation_charges,freight_charges,gst_mode,gst_rate,gst_amount,status,creator:created_by(employee_name),inquiries(inquiry_number,customers(customer_name)),quotation_lines(id,product_name,quantity,unit,unit_price,line_total)').order('created_at', { ascending: false }).limit(500)
     if (error) throw error; return data as any[] } })
   const names = [...new Set((data ?? []).map((r) => one(r.creator)?.employee_name).filter(Boolean))] as string[]
   const t = q.trim().toLowerCase()
@@ -32,7 +32,8 @@ export default function QuoteLibrary() {
         <div className="muted">{r.quotation_number} v{r.version} · {one(r.inquiries)?.inquiry_number} · {fmt(r.quotation_date)} · by {one(r.creator)?.employee_name ?? '—'}</div>
         {(r.quotation_lines ?? []).map((l: any) => <div className="row" key={l.id}><span>{Number(l.quantity)}{l.unit ? ` ${l.unit}` : ''} × {l.product_name}</span><span className="muted">{inr(l.unit_price)} each · {inr(l.line_total)}</span></div>)}
         {Number(r.installation_charges) > 0 && <div className="row"><span>Installation charges</span><span className="muted">{inr(r.installation_charges)}</span></div>}
-        <div className="row"><b>Total</b><b>{inr(r.total_amount)}</b></div>
+        {Number(r.gst_amount) > 0 && <div className="row"><span>GST {Number(r.gst_rate)}% {r.gst_mode === 'plus' ? '(added)' : '(included)'}</span><span className="muted">{r.gst_mode === 'plus' ? '+ ' : ''}{inr(r.gst_amount)}</span></div>}
+        <div className="row"><b>{r.gst_mode === 'plus' && Number(r.gst_amount) > 0 ? 'Total (before GST)' : 'Total'}</b><b>{inr(r.total_amount)}</b></div>
         {Number(r.freight_charges) > 0 && <div className="row"><span>Freight charges (extra, no GST)</span><span className="muted">{inr(r.freight_charges)}</span></div>}
       </div>)}
     </section>

@@ -11,7 +11,7 @@ export default function Quotes({ me, inquiry, onClose }: { me: any; inquiry: any
   const qc = useQueryClient(), canWrite = me.role === 'admin' || me.role === 'sales', isAdmin = me.role === 'admin'
   const [adding, setAdding] = useState(false), [msg, setMsg] = useState('')
   const list = useQuery({ queryKey: ['quotes', inquiry.id], queryFn: async () => {
-    const { data, error } = await supabase.from('quotations').select('id,quotation_number,version,quotation_date,total_amount,installation_charges,freight_charges,status,created_at,creator:created_by(employee_name),quotation_lines(id,product_name,quantity,unit,unit_price,line_total)').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('quotations').select('id,quotation_number,version,quotation_date,total_amount,installation_charges,freight_charges,gst_mode,gst_rate,gst_amount,status,created_at,creator:created_by(employee_name),quotation_lines(id,product_name,quantity,unit,unit_price,line_total)').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false })
     if (error) throw error; return data as any[] } })
   const refresh = () => { qc.invalidateQueries({ queryKey: ['quotes'] }); qc.invalidateQueries({ queryKey: ['quote-library'] }) }
   async function setSt(q: any, s: string) { const { error } = await supabase.from('quotations').update({ status: s }).eq('id', q.id); setMsg(error ? error.message : ''); refresh() }
@@ -32,7 +32,8 @@ export default function Quotes({ me, inquiry, onClose }: { me: any; inquiry: any
         <div className="muted">{fmt(q.quotation_date)} · by {one(q.creator)?.employee_name ?? '—'}</div>
         {(q.quotation_lines ?? []).map((l: any) => <div className="row" key={l.id}><span>{Number(l.quantity)}{l.unit ? ` ${l.unit}` : ''} × {l.product_name}</span><span className="muted">{inr(l.unit_price)} each · <b>{inr(l.line_total)}</b></span></div>)}
         {Number(q.installation_charges) > 0 && <div className="row"><span>Installation charges</span><span className="muted">{inr(q.installation_charges)}</span></div>}
-        <div className="row"><b>Total</b><b>{inr(q.total_amount)}</b></div>
+        {Number(q.gst_amount) > 0 && <div className="row"><span>GST {Number(q.gst_rate)}% {q.gst_mode === 'plus' ? '(added)' : '(included)'}</span><span className="muted">{q.gst_mode === 'plus' ? '+ ' : ''}{inr(q.gst_amount)}</span></div>}
+        <div className="row"><b>{q.gst_mode === 'plus' && Number(q.gst_amount) > 0 ? 'Total (before GST)' : 'Total'}</b><b>{inr(q.total_amount)}</b></div>
         {Number(q.freight_charges) > 0 && <div className="row"><span>Freight charges (extra, no GST)</span><span className="muted">{inr(q.freight_charges)}</span></div>}
         {canWrite && <div className="bar">{QSTATUS.filter((s) => s !== q.status && s !== 'Revised').map((s) => <button key={s} onClick={() => setSt(q, s)}>Mark {s}</button>)}{isAdmin && <button className="link" onClick={() => remove(q)}>Delete</button>}</div>}
       </div>)}
