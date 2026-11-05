@@ -5,7 +5,7 @@ import WhoFor from './WhoFor'
 import ItemsEditor, { ItemRow, newRow, rowsFromItems, useCatalogue } from './ItemsEditor'
 // "Record the quotation": the inquiry's items come pre-filled; check the quantity, type the price. Opens when an inquiry is moved to Quotation Sent.
 export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inquiry: any; onClose: () => void; onSaved?: () => Promise<string | null>; onSkip?: () => Promise<string | null> }) {
-  const qc = useQueryClient(), [rows, setRows] = useState<ItemRow[] | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false), [number, setNumber] = useState<string | null>(null)
+  const qc = useQueryClient(), [rows, setRows] = useState<ItemRow[] | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false), [number, setNumber] = useState<string | null>(null), [inst, setInst] = useState('')
   const cat = useCatalogue()
   const items = useQuery({ queryKey: ['quote-items', inquiry.id], queryFn: async () => {
     const { data, error } = await supabase.from('inquiry_items').select('id,product_id,product_name_snapshot,quantity,unit').eq('inquiry_id', inquiry.id).order('created_at'); if (error) throw error; return data as any[] } })
@@ -27,7 +27,7 @@ export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inqui
       if (!l.price || Number(l.price) < 0) return setErr(`Enter the price for ${p.product_name}.`)
     }
     setBusy(true)
-    const { error } = await supabase.rpc('create_quotation', { p_inquiry: inquiry.id, p_number: numVal.trim(), p_lines: R.map((l) => { const p = prods.find((x) => x.id === l.pid)!; return { product_id: p.id, name: p.product_name, quantity: Number(l.qty), unit: p.unit || null, unit_price: Number(l.price) } }) })
+    const { error } = await supabase.rpc('create_quotation', { p_inquiry: inquiry.id, p_number: numVal.trim(), p_installation: Number(inst) || 0, p_lines: R.map((l) => { const p = prods.find((x) => x.id === l.pid)!; return { product_id: p.id, name: p.product_name, quantity: Number(l.qty), unit: p.unit || null, unit_price: Number(l.price) } }) })
     if (error) { setBusy(false); return setErr(error.message) }
     const e = onSaved ? await onSaved() : null
     setBusy(false); await done()
@@ -42,6 +42,7 @@ export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inqui
       {ready && <label>Quotation number<input required value={numVal} onChange={(e) => setNumber(e.target.value)} placeholder="the number on your Excel quotation" />
         <span className="muted" style={{ textTransform: 'none', letterSpacing: 0, fontFamily: 'inherit', fontSize: 12 }}>Type it yourself. Use the same number again to record a revised version.</span></label>}
       {ready && <ItemsEditor rows={R} onChange={setRows} showPrice keepOne />}
+      {ready && <label>Installation charges (₹, optional)<input type="number" min="0" step="any" value={inst} onChange={(e) => setInst(e.target.value)} placeholder="Leave empty if not charged" /></label>}
       {err && <p className="msg">{err}</p>}
       <div className="bar"><button className="primary" disabled={busy || !ready} onClick={save}>{busy ? 'Saving…' : onSaved ? 'Save and mark Quotation Sent' : 'Save quotation'}</button>
         {onSkip && <button disabled={busy} onClick={skip}>Skip, just move the stage</button>}<button disabled={busy} onClick={onClose}>Cancel</button></div>
