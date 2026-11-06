@@ -46,7 +46,7 @@ export function Bell() {
   const { data } = useNotes(), read = useRead(), [open, setOpen] = useState(false)
   const unread = (data ?? []).filter((n) => !n.read_at).length
   return <>
-    <button aria-label="Notifications" onClick={() => setOpen(true)} style={{ position: 'relative', fontSize: 20, padding: '0 8px', background: 'none', border: 0, marginLeft: 8 }}>🔔{unread > 0 && <span style={{ position: 'absolute', top: -6, right: -2, background: '#9b3b30', color: '#fff', borderRadius: 10, fontSize: 11, padding: '1px 6px', fontWeight: 700 }}>{unread}</span>}</button>
+    <button aria-label="Notifications" onClick={() => setOpen(true)} style={{ position: 'relative', fontSize: 20, padding: '0 8px', background: 'none', color: 'inherit', border: 0, marginLeft: 8 }}>🔔{unread > 0 && <span style={{ position: 'absolute', top: -6, right: -2, background: '#9b3b30', color: '#fff', borderRadius: 10, fontSize: 11, padding: '1px 6px', fontWeight: 700 }}>{unread}</span>}</button>
     {open && <div className="modal" onClick={() => setOpen(false)}><div className="card" onClick={(e) => e.stopPropagation()}>
       <div className="row"><h3 style={{ margin: 0 }}>Notifications</h3>{unread > 0 && <button className="link" onClick={() => read(null)}>Mark all as read</button>}</div>
       <PhoneToggle />
