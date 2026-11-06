@@ -1,3 +1,4 @@
+import LangSwitch from './LangSwitch'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { APP_NAME, APP_TAGLINE } from '../lib/brand'
@@ -15,6 +16,7 @@ export default function Login() {
   }
   return (
     <form className="card login" onSubmit={signIn}>
+      <div style={{ display: 'flex' }}><LangSwitch /></div>
       <img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       <h1>{APP_NAME}</h1>
       <p className="tag">{APP_TAGLINE}</p>
