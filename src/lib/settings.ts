@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-export const DEFAULT_CATEGORIES = ['RFID Hotel Locks','Electronic Door Locks','RFID Cards','Access Control','Sensor-Based Entry','Automatic Sliding Doors','Hotel Lock Software','Accessories','Other']
+export const DEFAULT_CATEGORIES = ['Hotel lock kit','Access Control','Automatic Sliding Doors','Accessories','Other']
 export const DEFAULT_LOST_REASONS = ['Price was too high','Chose a competitor','No response from customer','Project cancelled or postponed','Other']
 export const DEFAULT_SOURCES = ['WhatsApp','Phone Call','Email','Website','Referral','Walk-in','Manual','Other']
 // These four stages drive built-in behaviour (new inquiries, won/lost counts, dispatch, stopping follow-ups), so they stay fixed.
