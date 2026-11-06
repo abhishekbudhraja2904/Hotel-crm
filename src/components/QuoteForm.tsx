@@ -25,14 +25,16 @@ export default function QuoteForm({ inquiry, onClose, onSaved, onSkip }: { inqui
     setErr('')
     if (!numVal.trim()) return setErr('Enter the quotation number.')
     const prods = cat.data ?? []
-    for (const l of R) {
+    const used = R.filter((l) => l.pid || l.qty || l.price)
+    if (!used.length) return setErr('Add at least one item.')
+    for (const l of used) {
       const p = prods.find((x) => x.id === l.pid)
       if (!p) return setErr('Choose a category and a product on every item (or remove the empty item).')
       if (!(Number(l.qty) > 0)) return setErr(`Enter the quantity for ${p.product_name}.`)
       if (!l.price || Number(l.price) < 0) return setErr(`Enter the price for ${p.product_name}.`)
     }
     setBusy(true)
-    const { error } = await supabase.rpc('create_quotation', { p_inquiry: inquiry.id, p_number: numVal.trim(), p_installation: Number(inst) || 0, p_freight: Number(freight) || 0, p_gst_mode: mode, p_gst_rate: rate, p_lines: R.map((l) => { const p = prods.find((x) => x.id === l.pid)!; return { product_id: p.id, name: p.product_name, quantity: Number(l.qty), unit: p.unit || null, unit_price: Number(l.price) } }) })
+    const { error } = await supabase.rpc('create_quotation', { p_inquiry: inquiry.id, p_number: numVal.trim(), p_installation: Number(inst) || 0, p_freight: Number(freight) || 0, p_gst_mode: mode, p_gst_rate: rate, p_lines: used.map((l) => { const p = prods.find((x) => x.id === l.pid)!; return { product_id: p.id, name: p.product_name, quantity: Number(l.qty), unit: p.unit || null, unit_price: Number(l.price) } }) })
     if (error) { setBusy(false); return setErr(error.message) }
     const e = onSaved ? await onSaved() : null
     setBusy(false); await done()

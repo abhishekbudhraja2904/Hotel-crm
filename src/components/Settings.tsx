@@ -6,7 +6,7 @@ import { useDragReorder } from '../lib/drag'
 import { useSettings, saveSetting, FIRST, LAST, DEFAULT_TILES, Tile } from '../lib/settings'
 import Catalogue from './Catalogue'
 import ExcelCard from './ExcelCard'
-import { PaymentRules, ClockRules, OfficeNetwork, StaffRules } from './SettingsExtra'
+import { PaymentRules, ClockRules, OfficeNetwork, StaffRules, KitContents } from './SettingsExtra'
 
 type Row = { orig?: string; name: string }
 function ListEditor({ title, hint, fixedStart = [], fixedEnd = [], values, onSave }: { title: string; hint?: string; fixedStart?: string[]; fixedEnd?: string[]; values: string[]; onSave: (items: Row[], removed: string[]) => Promise<string | null> }) {
@@ -111,6 +111,7 @@ export default function Settings({ me }: { me: any }) {
         <OfficeNetwork />
         <ClockRules me={me} />
         <ListEditor title="Product categories" hint="Shown when adding an inquiry or a stock product. Renaming does not change old records." values={s.categories} onSave={(i) => saveList('categories', i)} />
+        <KitContents me={me} />
         <ListEditor title="Inquiry sources" hint="Where an inquiry came from, e.g. IndiaMART. Renaming does not change old records." values={s.sources} onSave={(i) => saveList('sources', i)} />
         <ListEditor title="Reasons an inquiry is lost" hint="The choices shown when someone marks an inquiry Lost. Renaming does not change old records." values={s.lostReasons} onSave={(i) => saveList('lostReasons', i)} />
         <TileEditor tiles={s.tiles} stages={s.stages} onSave={async (t) => { const e = await saveSetting('tiles', t, me.id); done(); return e }} />

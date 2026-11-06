@@ -73,3 +73,16 @@ export function StaffRules({ me }: { me: any }) {
       <label style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row', color: 'inherit', fontSize: 14 }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={!!e.office_only} onChange={(x) => office(e, x.target.checked)} />Must clock in on office network</label></div>)}
     {msg && <p className="msg">{msg}</p>}</div>
 }
+
+// Which categories make up the "Hotel lock kit": picking the kit on an inquiry or quotation adds one row for each of these.
+export function KitContents({ me }: { me: any }) {
+  const qc = useQueryClient(), s = useSettings(), [sel, setSel] = useState<string[]>(s.kitCategories), [msg, setMsg] = useState('')
+  useEffect(() => { setSel(s.kitCategories) }, [JSON.stringify(s.kitCategories)]) // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (c: string) => setSel((a) => (a.includes(c) ? a.filter((x) => x !== c) : [...a, c]))
+  async function save() { const e = await saveSetting('kitCategories', s.categories.filter((c) => sel.includes(c)), me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] }) }
+  return <div className="card"><h3 style={{ margin: 0 }}>Hotel lock kit contents</h3>
+    <p className="muted" style={{ margin: 0 }}>Tick the categories that belong in the kit. When someone picks "Hotel lock kit" on an inquiry or quotation, one row is added for each tick, and they only choose the model.</p>
+    {s.categories.map((c) => <label key={c} style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row', color: 'inherit', fontSize: 14 }}>
+      <input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={sel.includes(c)} onChange={() => toggle(c)} />{c}</label>)}
+    {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save kit</button></div>
+}
