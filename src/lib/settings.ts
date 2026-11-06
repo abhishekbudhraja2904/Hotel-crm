@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-export const DEFAULT_CATEGORIES = ['Hotel lock kit','Access Control','Automatic Sliding Doors','Accessories','Other']
+export const DEFAULT_CATEGORIES = ['RFID Hotel Locks','Electronic Door Locks','RFID Cards','Access Control','Sensor-Based Entry','Automatic Sliding Doors','Hotel Lock Software','Accessories','Other']
 export const DEFAULT_LOST_REASONS = ['Price was too high','Chose a competitor','No response from customer','Project cancelled or postponed','Other']
 export const DEFAULT_SOURCES = ['WhatsApp','Phone Call','Email','Website','Referral','Walk-in','Manual','Other']
 // These four stages drive built-in behaviour (new inquiries, won/lost counts, dispatch, stopping follow-ups), so they stay fixed.
@@ -29,7 +29,7 @@ export function useSettings() {
     return Object.fromEntries((data ?? []).map((r: any) => [r.key, r.value])) as Record<string, any> } })
   const s = data ?? {}
   const aco = s.autoClockOut ?? {}
-  return { gstRate: typeof s.gstRate === 'number' && s.gstRate >= 0 ? s.gstRate : 18, requireFullPayment: s.requireFullPayment === true, autoClockOut: { time: typeof aco.time === 'string' ? aco.time : '21:00', idleMinutes: Number(aco.idleMinutes) > 0 ? Number(aco.idleMinutes) : 60 }, categories: list(s.categories, DEFAULT_CATEGORIES), sources: list(s.sources, DEFAULT_SOURCES), lostReasons: list(s.lostReasons, DEFAULT_LOST_REASONS), stages: normStages(s.stages), tiles: normTiles(s.tiles) }
+  return { gstRate: typeof s.gstRate === 'number' && s.gstRate >= 0 ? s.gstRate : 18, requireFullPayment: s.requireFullPayment === true, autoClockOut: { time: typeof aco.time === 'string' ? aco.time : '21:00', idleMinutes: Number(aco.idleMinutes) > 0 ? Number(aco.idleMinutes) : 60 }, categories: list(s.categories, DEFAULT_CATEGORIES), kitCategories: Array.isArray(s.kitCategories) ? s.kitCategories.map(String) : [] as string[], sources: list(s.sources, DEFAULT_SOURCES), lostReasons: list(s.lostReasons, DEFAULT_LOST_REASONS), stages: normStages(s.stages), tiles: normTiles(s.tiles) }
 }
 export async function saveSetting(key: string, value: any, by: string): Promise<string | null> {
   const { data: ex, error: e1 } = await supabase.from('org_settings').select('id').eq('key', key).maybeSingle()
