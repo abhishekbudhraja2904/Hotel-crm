@@ -12,6 +12,7 @@ import Team from './components/Team'
 import Attendance from './components/Attendance'
 import Inventory from './components/Inventory'
 import { Bell, NotifyPopup } from './components/Notifications'
+import LangSwitch from './components/LangSwitch'
 import Settings from './components/Settings'
 import AfterSales from './components/AfterSales'
 import Insights from './components/Insights'
@@ -61,7 +62,7 @@ function Shell({ session }: { session: any }) {
   const locked = manual && cs.data && !cs.data.clocked_in
   return (
     <>
-      <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<Bell /><span className="muted">{me.employee_name} ({me.role})</span>
+      <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<LangSwitch /><Bell /><span className="muted">{me.employee_name} ({me.role})</span>
         <button className="link" onClick={signOut}>Sign out</button></header>
       {!locked && <NotifyPopup />}
       {locked && <LockBar status={cs.data} />}
