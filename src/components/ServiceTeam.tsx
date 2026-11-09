@@ -4,17 +4,20 @@ import { supabase } from '../lib/supabase'
 import { fmtDate, isoDate } from '../lib/dates'
 import DateField from './DateField'
 import { ProofLink } from './JobUpdate'
+import { AgeTag, ageLook } from '../lib/age'
 // View only: installation jobs and service tickets, who gave the work and who is doing it. No prices.
 export default function ServiceTeam() {
-  const [tab, setTab] = useState<'inst' | 'tix' | 'day'>('inst'), [tech, setTech] = useState(''), [exec, setExec] = useState(''), [st, setSt] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState('')
+  const [tab, setTab] = useState<'inst' | 'tix' | 'rep' | 'day'>('inst'), [tech, setTech] = useState(''), [exec, setExec] = useState(''), [st, setSt] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState('')
   const { data, isLoading, error } = useQuery({ queryKey: ['service-team'], queryFn: async () => { const { data, error } = await supabase.rpc('service_team_overview'); if (error) throw error; return data as any } })
-  const rows: any[] = (tab === 'tix' ? data?.tickets : data?.installations) ?? []
-  const date = (r: any) => (tab === 'tix' ? String(r.opened_at).slice(0, 10) : r.installed_on)
+  const rows: any[] = (tab === 'tix' ? data?.tickets : tab === 'rep' ? data?.repairs : data?.installations) ?? []
+  const date = (r: any) => (tab === 'tix' ? String(r.opened_at).slice(0, 10) : tab === 'rep' ? String(r.created_at).slice(0, 10) : r.installed_on)
   const isNew = (r: any) => Date.now() - new Date(r.created_at ?? r.opened_at).getTime() < 48 * 3600 * 1000
   const uniq = (k: string, kn: string) => [...new Map(rows.filter((r) => r[k]).map((r) => [r[k], r[kn]])).entries()]
   const shown = rows.filter((r) => (!tech || r.technician_id === tech) && (!exec || r.sales_exec_id === exec) && (!st || r.status === st) && (!from || date(r) >= from) && (!to || date(r) <= to))
-  const bar = <div className="bar"><button className={tab === 'inst' ? 'primary' : ''} onClick={() => { setTab('inst'); setSt('') }}>Installations</button><button className={tab === 'tix' ? 'primary' : ''} onClick={() => { setTab('tix'); setSt('') }}>Service tickets</button><button className={tab === 'day' ? 'primary' : ''} onClick={() => { setTab('day'); setSt('') }}>Daily report</button></div>
-  const statuses = tab !== 'tix' ? ['Scheduled', 'Completed'] : ['Open', 'In progress', 'Fixed']
+  const bar = <div className="bar"><button className={tab === 'inst' ? 'primary' : ''} onClick={() => { setTab('inst'); setSt('') }}>Installations</button><button className={tab === 'tix' ? 'primary' : ''} onClick={() => { setTab('tix'); setSt('') }}>Service tickets</button><button className={tab === 'rep' ? 'primary' : ''} onClick={() => { setTab('rep'); setSt('') }}>Repair boxes</button><button className={tab === 'day' ? 'primary' : ''} onClick={() => { setTab('day'); setSt('') }}>Daily report</button></div>
+  const statuses = tab === 'rep' ? ['Open', 'In progress', 'Done'] : tab !== 'tix' ? ['Scheduled', 'Completed'] : ['Open', 'In progress', 'Fixed']
+  const fin = (r: any) => r.status === 'Completed' || r.status === 'Fixed' || r.status === 'Done'
+  const since = (r: any) => (tab === 'tix' ? r.opened_at : r.created_at)
   if (tab === 'day') return <section>{bar}<DailyReport data={data} loading={isLoading} /></section>
   return <section>
     {bar}
@@ -28,11 +31,13 @@ export default function ServiceTeam() {
     {isLoading && <p className="empty">Loading…</p>}
     {error && <p className="msg">{(error as any).message}</p>}
     {data && !shown.length && <p className="empty">Nothing matches.</p>}
-    {shown.map((r) => <div className="card" key={r.id}>
+    {shown.map((r) => <div className="card" key={r.id} style={ageLook(since(r), fin(r)).style}>
       <div className="row"><b>{r.customer ?? r.site_name}{r.city ? ` · ${r.city}` : ''}</b><span>{isNew(r) && <span className="pill Urgent">New</span>} <span className="pill">{r.status === 'Scheduled' ? 'To do' : r.status}</span></span></div>
       {tab === 'tix' && <div>S-{String(r.seq).padStart(3, '0')} · {r.title}</div>}
+      {tab === 'rep' && <div>Repair box no. {r.box_no} · {r.pieces} piece{r.pieces === 1 ? '' : 's'}, {r.repaired} repaired{r.courier ? ` · ${r.courier}` : ''}</div>}
+      <AgeTag since={since(r)} finished={fin(r)} />
       {r.items ? <div className="muted">{r.items}</div> : r.what ? <div className="muted">{r.what}</div> : null}
-      <div className="muted">{r.site_name}{r.inquiry_number ? ` · ${r.inquiry_number}` : ''}{r.packing_no ? ` · packing no. ${r.packing_no}` : ''}</div>
+      <div className="muted">{r.site_name ?? ''}{r.inquiry_number ? ` · ${r.inquiry_number}` : ''}{r.packing_no ? ` · packing no. ${r.packing_no}` : ''}</div>
       <div className="muted">Given by: {r.given_by ?? '—'}{r.sales_exec && r.sales_exec !== r.given_by ? ` · Sales: ${r.sales_exec}` : ''} · Technician: {r.technician ?? 'not assigned'} · {fmtDate(date(r))}</div>
     </div>)}
   </section>
@@ -43,13 +48,13 @@ function DailyReport({ data, loading }: { data: any; loading: boolean }) {
   const [from, setFrom] = useState(isoDate(new Date(Date.now() - 6 * 86400000))), [to, setTo] = useState(isoDate()), [tech, setTech] = useState('')
   const rep = useQuery({ queryKey: ['service-team', 'daily'], refetchInterval: 60000, queryFn: async () => { const { data, error } = await supabase.rpc('daily_work_report'); if (error) throw error; return data as any[] } })
   const all: any[] = rep.data ?? []
-  const techs = [...new Map([...all, ...(data?.installations ?? []), ...(data?.tickets ?? [])].filter((r) => r.technician_id).map((r) => [r.technician_id, r.technician])).entries()]
+  const techs = [...new Map([...all, ...(data?.installations ?? []), ...(data?.tickets ?? []), ...(data?.repairs ?? [])].filter((r) => r.technician_id).map((r) => [r.technician_id, r.technician])).entries()]
   const shown = all.filter((r) => r.day >= from && r.day <= to && (!tech || r.technician_id === tech))
   const groups = new Map<string, any[]>()
   for (const r of shown) { const k = r.day + '|' + r.technician_id; groups.set(k, [...(groups.get(k) ?? []), r]) }
   // open work per technician and when they last sent an update
   const open = techs.map(([id, name]) => {
-    const jobs = [...(data?.installations ?? []).filter((i: any) => i.status !== 'Completed'), ...(data?.tickets ?? []).filter((t: any) => t.status !== 'Fixed')].filter((j: any) => j.technician_id === id)
+    const jobs = [...(data?.installations ?? []).filter((i: any) => i.status !== 'Completed'), ...(data?.tickets ?? []).filter((t: any) => t.status !== 'Fixed'), ...(data?.repairs ?? []).filter((b: any) => b.status !== 'Done')].filter((j: any) => j.technician_id === id)
     const last = all.filter((r) => r.technician_id === id).map((r) => r.day).sort().pop()
     return { id, name, n: jobs.length, last }
   }).filter((o) => o.n > 0 && (!tech || o.id === tech))

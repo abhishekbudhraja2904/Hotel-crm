@@ -6,12 +6,15 @@ import ReceiveStock from './ReceiveStock'
 import Keeper from './Keeper'
 import Correct from './Correct'
 import LowStock from './LowStock'
+import Spares from './Spares'
+import { AgeTag, ageLook } from '../lib/age'
+import { HandOverButton } from './Reassign'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const n = (x: any) => Number(x ?? 0).toLocaleString('en-IN')
 export default function Inventory({ me }: { me: any }) {
   const qc = useQueryClient(), isAdmin = me.role === 'admin', [msg, setMsg] = useState('')
   const [modal, setModal] = useState<'' | 'receive' | 'keeper'>(''), [fix, setFix] = useState<any>(null)
-  const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false)
+  const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false), [view, setView] = useState<'prod' | 'spare'>('prod')
   const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['lowstock'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
   const can = useQuery({ queryKey: ['inventory', 'can'], queryFn: async () => !!(await supabase.rpc('can_update_inventory')).data })
   const keeper = useQuery({ queryKey: ['inventory', 'keeper'], queryFn: async () => ((await supabase.rpc('inventory_keeper_info')).data ?? [])[0] ?? null })
@@ -25,8 +28,11 @@ export default function Inventory({ me }: { me: any }) {
     const left = k.mode === 'once' ? (k.active ? 'for one update' : 'used up') : k.mode === 'until' ? (k.active ? `until ${fmtDate(k.expires_at)}` : 'time is over') : 'until the admin takes it back'
     return `${k.employee_name} updates the stock (${left}).`
   }
+  const toggle = <div className="bar"><button className={view === 'prod' ? 'primary' : ''} onClick={() => setView('prod')}>Products</button><button className={view === 'spare' ? 'primary' : ''} onClick={() => setView('spare')}>Spare parts</button></div>
+  if (view === 'spare') return <section>{toggle}<Spares me={me} /></section>
   return (
     <section>
+      {toggle}
       {msg && <p className="msg">{msg}</p>}
       <LowStock detail />
       <div className={canEdit ? 'okbox' : 'card'} style={canEdit ? {} : { margin: 0 }}>
@@ -40,7 +46,7 @@ export default function Inventory({ me }: { me: any }) {
       <h3>Orders to pack and collect ({queue.data?.length ?? 0})</h3>
       {queue.data && !queue.data.length && <p className="empty">Nothing is assigned to you right now.</p>}
       {queue.data?.map((r: any) => { const col = r.state === 'collect'; return (
-        <div className="card" key={r.inquiry_id} style={{ borderLeftColor: col ? '#3f6b4a' : '#8A6F52' }}>
+        <div className="card" key={r.inquiry_id} style={{ borderLeftColor: col ? '#3f6b4a' : '#8A6F52', ...ageLook(r.since).style }}>
           <div className="row"><span className="muted">Packing number</span><span className={`pill${col ? '' : ' Medium'}`}>{col ? 'COLLECT' : 'PACK'}</span></div>
           <div className="pack-big">{r.packing_no ?? '—'}</div>
           {col ? <div className="okbox">Packed and fully paid. Collect this order, it is ready to go.</div>
@@ -49,7 +55,9 @@ export default function Inventory({ me }: { me: any }) {
           <div><b>{r.customer}</b>{r.city ? ` · ${r.city}` : ''}</div>
           <div className="barwrap"><div className={`paybar${Number(r.paid_pct) >= 100 ? ' full' : ''}`}><i style={{ width: `${Math.min(100, Number(r.paid_pct) || 0)}%` }} /></div>
             <div className="barnote">{Number(r.paid_pct) >= 100 ? 'Payment received in full' : 'Payment not complete yet'}</div></div>
+          <AgeTag since={r.since} />
           <div className="muted">Assigned by {r.assigned_by ?? '—'}{r.packer ? ` · Packing: ${r.packer}` : ''}</div>
+          <div className="bar"><HandOverButton me={me} kind="packing" id={r.inquiry_id} currentId={r.packer_id} title={`Packing no. ${r.packing_no} · ${r.customer}`} /></div>
         </div>) })}
 
       <h3>In store</h3>

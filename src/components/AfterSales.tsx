@@ -4,16 +4,20 @@ import { supabase } from '../lib/supabase'
 import { fmtDate as fmt, isoDate } from '../lib/dates'
 import DateField from './DateField'
 import JobUpdate, { UpdateList } from './JobUpdate'
+import Repairs from './Repairs'
+import { CustomerPick, useEmps, useCustomers } from './Pickers'
+import { HandOverButton } from './Reassign'
+import { AgeTag, ageLook } from '../lib/age'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const today = () => isoDate()
 const inWarranty = (u?: string | null) => !!u && u >= today()
 export default function AfterSales({ me }: { me: any }) {
-  const qc = useQueryClient(), [tab, setTab] = useState<'inst' | 'tix' | 'find'>('inst'), [msg, setMsg] = useState('')
+  const qc = useQueryClient(), [tab, setTab] = useState<'inst' | 'tix' | 'rep' | 'mine' | 'find'>('inst'), [msg, setMsg] = useState('')
   const [upd, setUpd] = useState<any>(null), [form, setForm] = useState<'' | 'inst' | 'tix'>(''), [serialFor, setSerialFor] = useState<any>(null), [openId, setOpenId] = useState('')
   const canWrite = me.role === 'admin' || me.role === 'service' || me.role === 'sales' // may record installations and add serial numbers
   const canTix = me.role === 'admin' || me.role === 'service' // may change a ticket's status
   const refresh = () => qc.invalidateQueries({ queryKey: ['aftersales'] })
-  const inst = useQuery({ queryKey: ['aftersales', 'inst'], queryFn: async () => { const { data, error } = await supabase.from('installations').select('id,status,technician_id,job_updates(id,done,note,proof_path,created_at,update_date),site_name,what,installed_on,warranty_until,warranty_months,notes,inquiry_id,employees:technician_id(employee_name),giver:employees!created_by(employee_name),inquiries(customers(customer_name,city)),serials(id,serial_no,room,packing_no)').order('installed_on', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
+  const inst = useQuery({ queryKey: ['aftersales', 'inst'], queryFn: async () => { const { data, error } = await supabase.from('installations').select('id,status,technician_id,created_at,job_updates(id,done,note,proof_path,created_at,update_date),site_name,what,installed_on,warranty_until,warranty_months,notes,inquiry_id,employees:technician_id(employee_name),giver:employees!created_by(employee_name),inquiries(customers(customer_name,city)),serials(id,serial_no,room,packing_no)').order('installed_on', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
   const tix = useQuery({ queryKey: ['aftersales', 'tix'], queryFn: async () => { const { data, error } = await supabase.from('service_tickets').select('id,assigned_to,job_updates(id,done,note,proof_path,created_at,update_date),seq,site_name,title,details,priority,status,opened_at,closed_at,installations(warranty_until,inquiries(customers(customer_name,city))),assigned:employees!assigned_to(employee_name),giver:employees!opened_by(employee_name)').order('opened_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
   async function setStatus(t: any, status: string) { const { error } = await supabase.from('service_tickets').update({ status }).eq('id', t.id); setMsg(error ? error.message : ''); refresh() }
   const [q, setQ] = useState('')
@@ -21,17 +25,19 @@ export default function AfterSales({ me }: { me: any }) {
   const Tab = (k: typeof tab, l: string) => <button className={tab === k ? 'primary' : ''} onClick={() => setTab(k)}>{l}</button>
   return (
     <section>
-      <div className="bar">{Tab('inst', 'Installations')}{Tab('tix', 'Service tickets')}{Tab('find', 'Find a serial')}</div>
+      <div className="bar">{Tab('inst', 'Installations')}{Tab('tix', 'Service tickets')}{Tab('rep', 'Repairs')}{me.role === 'service' && Tab('mine', 'My updates')}{Tab('find', 'Find a serial')}</div>
       {msg && <p className="msg">{msg}</p>}
       {tab === 'inst' && <>
         {canWrite && <button className="primary bigbtn go" onClick={() => setForm('inst')}>+ Give installation work</button>}
         {inst.data && !inst.data.length && <p className="empty">No installations recorded yet.</p>}
-        {inst.data?.map((i) => <div className="card tap" key={i.id} style={{ borderLeftColor: inWarranty(i.warranty_until) ? '#6B8F72' : '#8b8f86' }} onClick={() => setOpenId(openId === i.id ? '' : i.id)}>
+        {inst.data?.map((i) => <div className="card tap" key={i.id} style={{ borderLeftColor: inWarranty(i.warranty_until) ? '#6B8F72' : '#8b8f86', ...ageLook(i.created_at, i.status === 'Completed').style }} onClick={() => setOpenId(openId === i.id ? '' : i.id)}>
           <div className="row"><b>{one(one(i.inquiries)?.customers)?.customer_name ?? i.site_name}</b><span className={`pill${i.status === 'Completed' ? '' : ' Medium'}`}>{i.status === 'Completed' ? (inWarranty(i.warranty_until) ? 'Completed · in warranty' : 'Completed · warranty over') : i.job_updates?.length ? 'Partly done' : 'To do'}</span></div>
+          <AgeTag since={i.created_at} finished={i.status === 'Completed'} />
           {i.what && <div>{i.what}</div>}
           <div className="muted">{[i.site_name, one(one(i.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(i.giver)?.employee_name ? ` · Given by ${one(i.giver).employee_name}` : ''}</div>
           <div className="muted">{i.status === 'Completed' ? `Completed ${fmt(i.installed_on)} by ${one(i.employees)?.employee_name ?? 'n/a'} · warranty until ${fmt(i.warranty_until)}` : `Given to ${one(i.employees)?.employee_name ?? 'nobody yet'} · planned ${fmt(i.installed_on)}`}</div>
           {i.status !== 'Completed' && (me.role === 'admin' || (me.role === 'service' && i.technician_id === me.id)) && <button className="primary" onClick={(e) => { e.stopPropagation(); setUpd({ inst: i.id, title: `${i.site_name}${i.what ? ' · ' + i.what : ''}` }) }}>Update work (partly / fully done)</button>}
+          {i.status !== 'Completed' && <div className="bar" onClick={(e) => e.stopPropagation()}><HandOverButton me={me} kind="installation" id={i.id} currentId={i.technician_id} title={`${i.site_name}${i.what ? ' · ' + i.what : ''}`} /></div>}
           {openId === i.id && <div style={{ display: 'grid', gap: 6 }} onClick={(e) => e.stopPropagation()}>
             {i.notes && <div className="muted">{i.notes}</div>}
             <UpdateList list={i.job_updates} />
@@ -43,16 +49,20 @@ export default function AfterSales({ me }: { me: any }) {
       {tab === 'tix' && <>
         <button className="primary bigbtn go" onClick={() => setForm('tix')}>+ New service ticket</button>
         {tix.data && !tix.data.length && <p className="empty">No tickets.</p>}
-        {tix.data?.map((t) => { const w = one(t.installations)?.warranty_until; return <div className="card" key={t.id} style={{ borderLeftColor: t.priority === 'High' ? '#9b3b30' : '#8A6F52', opacity: t.status === 'Fixed' ? 0.7 : 1 }}>
+        {tix.data?.map((t) => { const w = one(t.installations)?.warranty_until; return <div className="card" key={t.id} style={{ borderLeftColor: t.priority === 'High' ? '#9b3b30' : '#8A6F52', opacity: t.status === 'Fixed' ? 0.7 : 1, ...ageLook(t.opened_at, t.status === 'Fixed').style }}>
           <div className="row"><b>Ticket S-{String(t.seq).padStart(3, '0')}</b><span className={`pill ${t.priority === 'High' ? 'Urgent' : t.priority}`}>{t.priority}</span></div>
           <div style={{ fontSize: 16 }}>{t.title}</div>
+          <AgeTag since={t.opened_at} finished={t.status === 'Fixed'} />
           <div className="muted">{[t.site_name, one(one(one(t.installations)?.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(t.giver)?.employee_name ? ` · Given by ${one(t.giver).employee_name}` : ''}</div>
           <div className="muted">Opened {fmt(t.opened_at)}{w ? (inWarranty(w) ? ' · in warranty' : ' · warranty over') : ''}{one(t.assigned)?.employee_name ? ` · ${one(t.assigned).employee_name}` : ''}</div>
           {t.details && <div className="muted">{t.details}</div>}
           <UpdateList list={t.job_updates} />
           {t.status !== 'Fixed' && (me.role === 'admin' || (me.role === 'service' && t.assigned_to === me.id)) && <button className="primary" onClick={() => setUpd({ ticket: t.id, title: `S-${String(t.seq).padStart(3, '0')} · ${t.title}` })}>Update work (partly / fully done)</button>}
+          {t.status !== 'Fixed' && <div className="bar"><HandOverButton me={me} kind="ticket" id={t.id} currentId={t.assigned_to} title={`S-${String(t.seq).padStart(3, '0')} · ${t.title}`} /></div>}
           {canTix ? <div className="bar">{['Open', 'In progress', 'Fixed'].map((s) => <button key={s} className={t.status === s ? 'primary' : ''} onClick={() => t.status !== s && setStatus(t, s)}>{s}</button>)}</div> : <span className="pill" style={{ justifySelf: 'start' }}>{t.status}</span>}
         </div> })}</>}
+      {tab === 'rep' && <Repairs me={me} />}
+      {tab === 'mine' && <MyUpdates />}
       {tab === 'find' && <>
         <input placeholder="Type at least 3 characters of the serial number" value={q} onChange={(e) => setQ(e.target.value)} />
         {found.data && !found.data.length && <p className="empty">Nothing found.</p>}
@@ -65,19 +75,6 @@ export default function AfterSales({ me }: { me: any }) {
     </section>
   )
 }
-function useCustomers() { return useQuery({ queryKey: ['assignable-customers'], queryFn: async () => ((await supabase.rpc('assignable_customers')).data as any[]) ?? [] }) }
-// Pick the customer (name + city) the work is for, or type a new site by hand.
-function CustomerPick({ site, city, onChange }: { site: string; city: string; onChange: (site: string, city: string) => void }) {
-  const cs = useCustomers(), [other, setOther] = useState(false)
-  const val = other ? '__other' : cs.data?.find((c: any) => c.name === site && (c.city ?? '') === city)?.id ?? ''
-  return <>
-    <label>Customer<select value={val} onChange={(e) => { if (e.target.value === '__other') { setOther(true); onChange('', '') } else { setOther(false); const c = cs.data?.find((x: any) => x.id === e.target.value); onChange(c?.name ?? '', c?.city ?? '') } }}>
-      <option value="">Choose customer…</option>{cs.data?.map((c: any) => <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ''}</option>)}<option value="__other">Someone else (type below)</option></select></label>
-    {(other || (site && !val)) && <label>Customer / site name<input required value={site} onChange={(e) => onChange(e.target.value, city)} /></label>}
-    <label>City<input value={city} onChange={(e) => onChange(site, e.target.value)} placeholder="City of the customer" /></label>
-  </>
-}
-function useEmps() { return useQuery({ queryKey: ['employees', 'active'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).eq('role', 'service').order('employee_name')).data ?? [] }) }
 function InstForm({ me, onClose, onDone }: { me: any; onClose: () => void; onDone: () => void }) {
   const emps = useEmps(), custs = useCustomers(), orders = useQuery({ queryKey: ['aftersales', 'orders'], queryFn: async () => (await supabase.rpc('installable_orders')).data as any[] ?? [] })
   const [f, setF] = useState({ order: '', site: '', city: '', what: '', tech: (me.role === 'service' ? me.id : '') as string, on: today(), months: '12', notes: '' }), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
@@ -125,4 +122,16 @@ function TicketForm({ me, sites, onClose, onDone }: { me: any; sites: any[]; onC
     <label>Priority<select value={f.pr} onChange={(e) => setF({ ...f, pr: e.target.value })}><option>Low</option><option>Medium</option><option>High</option></select></label>
     <label>Give to<select value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })}><option value="">Not assigned</option>{emps.data?.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>
     {err && <p className="msg">{err}</p>}<button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Open ticket'}</button><button type="button" className="link" onClick={onClose}>Cancel</button></form></div>
+}
+
+// The notes this person has written, newest first, with the date of the work.
+function MyUpdates() {
+  const q = useQuery({ queryKey: ['aftersales', 'mine'], queryFn: async () => { const { data, error } = await supabase.rpc('my_job_updates'); if (error) throw error; return data as any[] } })
+  return <>
+    {q.isLoading && <p className="empty">Loading…</p>}
+    {q.data && !q.data.length && <p className="empty">You have not saved any updates yet.</p>}
+    {q.data?.map((u) => <div className="card" key={u.id}>
+      <div className="row"><b>{u.job}{u.city ? ` · ${u.city}` : ''}</b><span className={`pill${u.done === 'complete' ? '' : ' Medium'}`}>{u.done === 'complete' ? 'Fully done' : 'Partly done'}</span></div>
+      <div className="muted">Work date {fmt(u.day)} · saved {fmt(u.saved_at)}</div><div>{u.note}</div></div>)}
+  </>
 }
