@@ -7,6 +7,7 @@ import { useSettings, saveSetting, FIRST, LAST, DEFAULT_TILES, Tile } from '../l
 import Catalogue from './Catalogue'
 import ExcelCard from './ExcelCard'
 import { PaymentRules, ClockRules, OfficeNetwork, StaffRules, KitContents } from './SettingsExtra'
+import { CustomerAppContacts } from './CustomerApp'
 
 type Row = { orig?: string; name: string }
 function ListEditor({ title, hint, fixedStart = [], fixedEnd = [], values, onSave }: { title: string; hint?: string; fixedStart?: string[]; fixedEnd?: string[]; values: string[]; onSave: (items: Row[], removed: string[]) => Promise<string | null> }) {
@@ -108,6 +109,7 @@ export default function Settings({ me }: { me: any }) {
         <Catalogue />
         <PaymentRules me={me} />
         <StaffRules me={me} />
+        <CustomerAppContacts />
         <OfficeNetwork />
         <ClockRules me={me} />
         <ListEditor title="Product categories" hint="Shown when adding an inquiry or a stock product. Renaming does not change old records." values={s.categories} onSave={(i) => saveList('categories', i)} />
