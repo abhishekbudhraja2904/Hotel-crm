@@ -12,11 +12,11 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
   const qc = useQueryClient(), isAdmin = me.role === 'admin', { gstRate } = useSettings()
   const key = ['money', inquiry.id]
   const { data, isLoading } = useQuery({ queryKey: key, queryFn: async () => {
-    const f = await supabase.from('order_finance').select('order_value,balance_due_on,base_value,gst_mode,gst_rate,gst_amount,courier_charges').eq('inquiry_id', inquiry.id).maybeSingle(); if (f.error) throw f.error
+    const f = await supabase.from('order_finance').select('order_value,balance_due_on,base_value,gst_mode,gst_rate,gst_amount,courier_charges,courier_gst').eq('inquiry_id', inquiry.id).maybeSingle(); if (f.error) throw f.error
     const p = await supabase.from('payments').select('id,amount,paid_on,note,created_at,employees:created_by(employee_name)').eq('inquiry_id', inquiry.id).order('paid_on', { ascending: false }).order('created_at', { ascending: false }); if (p.error) throw p.error
-    const q = await supabase.from('quotations').select('quotation_number,version,total_amount,freight_charges,gst_mode,gst_rate').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false }).limit(1); if (q.error) throw q.error
+    const q = await supabase.from('quotations').select('quotation_number,version,total_amount,freight_charges,freight_gst,gst_mode,gst_rate').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false }).limit(1); if (q.error) throw q.error
     return { fin: f.data, pays: p.data as any[], quote: (q.data?.[0] ?? null) as any } } })
-  const [base, setBase] = useState<string | null>(null), [mode, setMode] = useState<'plus' | 'inclusive' | null>(null), [courier, setCourier] = useState<string | null>(null), [due, setDue] = useState<string | null>(null)
+  const [base, setBase] = useState<string | null>(null), [mode, setMode] = useState<'plus' | 'inclusive' | null>(null), [courier, setCourier] = useState<string | null>(null), [due, setDue] = useState<string | null>(null), [cg, setCg] = useState<boolean | null>(null)
   const [amt, setAmt] = useState(''), [on, setOn] = useState(isoDate()), [note, setNote] = useState('')
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false)
   const refresh = () => { qc.invalidateQueries({ queryKey: ['money'] }); qc.invalidateQueries({ queryKey: ['inventory'] }) }
@@ -27,15 +27,20 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
   const courierStr = courier ?? (fin ? String(Number(fin.courier_charges ?? 0) || '') : data?.quote ? String(Number(data.quote.freight_charges ?? 0) || '') : '')
   const rate = fin?.gst_rate != null && base === null && mode === null ? Number(fin.gst_rate) : !fin && data?.quote?.gst_rate != null ? Number(data.quote.gst_rate) : gstRate
   const B = Number(baseStr) || 0, C = Number(courierStr) || 0
+  // GST on courier: follows the quotation; an order saved before this option existed keeps its courier without GST.
+  const fc = Number(fin?.courier_charges ?? 0)
+  const cgDefault = fin ? (fc > 0 ? (fin.courier_gst == null ? false : Number(fin.courier_gst) > 0) : true) : data?.quote ? (Number(data.quote.freight_charges) > 0 ? Number(data.quote.freight_gst) > 0 : true) : true
+  const cgOn = cg ?? cgDefault
+  const CG = C > 0 && cgOn ? (m === 'plus' ? r2((C * rate) / 100) : r2(C - C / (1 + rate / 100))) : 0
   const gst = legacy && base === null && mode === null ? 0 : m === 'plus' ? r2((B * rate) / 100) : r2(B - B / (1 + rate / 100))
-  const total = m === 'plus' ? r2(B + gst + C) : r2(B + C)
+  const total = m === 'plus' ? r2(B + gst + C + CG) : r2(B + C)
   const value = Number(fin?.order_value ?? 0), paid = (data?.pays ?? []).reduce((n, p) => n + Number(p.amount), 0), balance = Math.max(0, value - paid)
   const pct = value > 0 ? Math.min(100, Math.round((paid / value) * 100)) : 0, full = value > 0 && balance < 0.005
   async function saveValue() {
     if (!(B > 0)) return setErr('Enter the order value.')
     setErr(''); setBusy(true)
-    const { error } = await supabase.from('order_finance').upsert({ inquiry_id: inquiry.id, order_value: total, base_value: B, gst_mode: m, gst_rate: rate, gst_amount: gst, courier_charges: C, balance_due_on: (due ?? fin?.balance_due_on) || null, updated_by: me.id }, { onConflict: 'inquiry_id' })
-    setBusy(false); if (error) return setErr(error.message); setBase(null); setMode(null); setCourier(null); setDue(null); refresh()
+    const { error } = await supabase.from('order_finance').upsert({ inquiry_id: inquiry.id, order_value: total, base_value: B, gst_mode: m, gst_rate: rate, gst_amount: gst, courier_charges: C, courier_gst: CG, balance_due_on: (due ?? fin?.balance_due_on) || null, updated_by: me.id }, { onConflict: 'inquiry_id' })
+    setBusy(false); if (error) return setErr(error.message); setBase(null); setMode(null); setCourier(null); setCg(null); setDue(null); refresh()
   }
   async function addPayment() {
     const a = Number(amt); if (!(a > 0)) return setErr('Enter the amount received.')
@@ -69,11 +74,13 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
           <button type="button" className={m === 'plus' ? 'primary' : ''} onClick={() => setMode('plus')}>+ GST ({rate}%)</button>
           <button type="button" className={m === 'inclusive' ? 'primary' : ''} onClick={() => setMode('inclusive')}>Inclusive of GST</button></div>
         <label>Freight / courier charges (₹, paid by the buyer, optional)<input type="number" min="0" step="any" value={courierStr} onChange={(e) => setCourier(e.target.value)} /></label>
+        {C > 0 && <label style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row', color: 'inherit', fontSize: 14 }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={cgOn} onChange={(e) => setCg(e.target.checked)} />Charge GST on courier too ({rate}%{m === 'inclusive' ? ', already inside the courier amount' : ', added'})</label>}
         <label>Balance due on<DateField value={due ?? fin?.balance_due_on ?? ''} onChange={setDue} ariaLabel="Balance due date" /></label>
         {B > 0 && <div className="warnbox" style={{ display: 'grid', gap: 3 }}>
           <div className="row"><span>Order value{m === 'inclusive' ? ' (GST included)' : ''}</span><span>{inr(B)}</span></div>
           <div className="row"><span>{m === 'plus' ? `GST ${rate}% (added)` : `GST ${rate}% (already inside the value)`}</span><span>{m === 'plus' ? '+ ' : ''}{inr(gst)}</span></div>
-          {C > 0 && <div className="row"><span>Courier charges (added)</span><span>+ {inr(C)}</span></div>}
+          {C > 0 && <div className="row"><span>Courier charges{m === 'inclusive' && CG > 0 ? ' (GST included)' : ' (added)'}</span><span>+ {inr(C)}</span></div>}
+          {CG > 0 && <div className="row"><span>{m === 'plus' ? `GST ${rate}% on courier (added)` : `GST ${rate}% on courier (already inside)`}</span><span>{m === 'plus' ? '+ ' : ''}{inr(CG)}</span></div>}
           <div className="row"><b>Total to receive</b><b>{inr(total)}</b></div></div>}
         <button disabled={busy} onClick={saveValue}>Save order value</button>
         <h4 style={{ margin: '6px 0 0' }}>Record a payment</h4>

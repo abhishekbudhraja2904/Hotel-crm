@@ -8,7 +8,7 @@ export default function ConfirmOrder({ inquiry, onConfirm, onClose }: { inquiry:
   const items = useQuery({ queryKey: ['confirm-items', inquiry.id], queryFn: async () => {
     const { data, error } = await supabase.from('inquiry_items').select('id,product_id,product_name_snapshot,quantity,unit').eq('inquiry_id', inquiry.id).order('created_at'); if (error) throw error; return data as any[] } })
   const prods = useQuery({ queryKey: ['confirm-products'], queryFn: async () => {
-    const { data, error } = await supabase.from('products').select('id,product_name,product_code').eq('active', true).order('product_name'); if (error) throw error; return data as any[] } })
+    const { data, error } = await supabase.from('products').select('id,product_name,product_code').eq('active', true).order('sort_order').order('product_name'); if (error) throw error; return data as any[] } })
   const stock = useQuery({ queryKey: ['inventory', 'overview'], queryFn: async () => { const { data } = await supabase.rpc('stock_overview'); return (data ?? []) as any[] } })
   const techs = useQuery({ queryKey: ['employees', 'service'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).eq('role', 'service').order('employee_name')).data ?? [] })
   async function assign() {
