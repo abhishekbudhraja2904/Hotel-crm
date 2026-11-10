@@ -583,6 +583,11 @@ const HI: Record<string, string> = {
 "Nothing": "कुछ नहीं",
 "Search the catalogue…": "कैटलॉग में खोजें…",
 "Top": "सबसे ऊपर",
-"Freight charges (extra)": "फ्रेट चार्ज (अतिरिक्त)"
+"Freight charges (extra)": "फ्रेट चार्ज (अतिरिक्त)",
+"Mortis": "मोर्टिस",
+"Standard mortis": "स्टैंडर्ड मोर्टिस",
+"Lock mortis": "लॉक मोर्टिस",
+"None (feature off)": "कोई नहीं (सुविधा बंद)",
+"Mortis that can be chosen instead": "जो मोर्टिस इसकी जगह चुना जा सकता है"
 }
 export default HI
