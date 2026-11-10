@@ -29,7 +29,7 @@ export function useSettings() {
     return Object.fromEntries((data ?? []).map((r: any) => [r.key, r.value])) as Record<string, any> } })
   const s = data ?? {}
   const aco = s.autoClockOut ?? {}
-  return { gstRate: typeof s.gstRate === 'number' && s.gstRate >= 0 ? s.gstRate : 18, requireFullPayment: s.requireFullPayment === true, autoClockOut: { time: typeof aco.time === 'string' ? aco.time : '21:00', idleMinutes: Number(aco.idleMinutes) > 0 ? Number(aco.idleMinutes) : 60 }, categories: list(s.categories, DEFAULT_CATEGORIES), kitCategories: Array.isArray(s.kitCategories) ? s.kitCategories.map(String) : [] as string[], sources: list(s.sources, DEFAULT_SOURCES), lostReasons: list(s.lostReasons, DEFAULT_LOST_REASONS), stages: normStages(s.stages), tiles: normTiles(s.tiles) }
+  return { gstRate: typeof s.gstRate === 'number' && s.gstRate >= 0 ? s.gstRate : 18, requireFullPayment: s.requireFullPayment === true, autoClockOut: { time: typeof aco.time === 'string' ? aco.time : '21:00', idleMinutes: Number(aco.idleMinutes) > 0 ? Number(aco.idleMinutes) : 60 }, categories: list(s.categories, DEFAULT_CATEGORIES), kitCategories: Array.isArray(s.kitCategories) ? s.kitCategories.map(String) : [] as string[], soldTogether: (Array.isArray(s.soldTogether) ? s.soldTogether.filter((x: any) => Array.isArray(x) && x.length === 2).map((x: any) => [String(x[0]), String(x[1])]) : []) as string[][], sources: list(s.sources, DEFAULT_SOURCES), lostReasons: list(s.lostReasons, DEFAULT_LOST_REASONS), stages: normStages(s.stages), tiles: normTiles(s.tiles) }
 }
 export async function saveSetting(key: string, value: any, by: string): Promise<string | null> {
   const { data: ex, error: e1 } = await supabase.from('org_settings').select('id').eq('key', key).maybeSingle()
