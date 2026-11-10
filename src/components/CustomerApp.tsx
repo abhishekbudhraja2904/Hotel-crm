@@ -120,3 +120,63 @@ function waLink(phone: string | null, text: string) {
   if (n.length === 10) n = '91' + n
   return `https://wa.me/${n}?text=${encodeURIComponent(text)}`
 }
+
+// On a Service ticket that came from the customer app: their ID, video(s), and a WhatsApp button.
+export function CustomerTicketBar({ info, seq }: { info: any; seq: number }) {
+  const [err, setErr] = useState('')
+  async function open(path: string) {
+    const w = window.open('', '_blank') // opened right away so the phone doesn't block it
+    const { data, error } = await supabase.storage.from('customer-media').createSignedUrl(path, 3600)
+    if (error || !data) { w?.close(); return setErr(error?.message ?? 'Could not open the file') }
+    if (w) w.location.href = data.signedUrl; else window.location.href = data.signedUrl
+  }
+  const no = 'S-' + String(seq).padStart(3, '0')
+  const text = `Hello from OFORTT about your ticket ${no}${info.fault ? ` (${info.fault})` : ''}. Can we do a video call now?`
+  return (
+    <div className="bar" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+      <span className="chip sm">From customer app · {info.code}</span>
+      {(info.media ?? []).map((p: string, i: number) => <button key={p} onClick={() => open(p)}>{/\.(jpe?g|png|webp|heic)$/i.test(p) ? 'View photo' : 'Watch video'}{info.media.length > 1 ? ` ${i + 1}` : ''}</button>)}
+      {info.phone && <button className="primary" onClick={() => window.open(waLink(info.phone, text), '_blank')}>WhatsApp customer</button>}
+      {err && <span className="msg">{err}</span>}
+    </div>
+  )
+}
+
+// Settings card (admin): the fault list customers pick from, per product category.
+export function CustomerAppProblems() {
+  const q = useQuery({ queryKey: ['customer-app-settings'], queryFn: async () => { const { data, error } = await supabase.rpc('customer_app_get_settings'); if (error) throw error; return data as any } })
+  const [rows, setRows] = useState<{ key: string; text: string; rooms: boolean }[]>([])
+  const [msg, setMsg] = useState(''), [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (!q.data) return
+    const opts = q.data.problem_options ?? {}
+    const keys = Array.from(new Set([...(q.data.categories ?? []), ...Object.keys(opts).filter((k) => k !== '_other')])).sort()
+    setRows([...keys, '_other'].map((k) => ({ key: k, text: (opts[k]?.faults ?? []).join('\n'), rooms: !!opts[k]?.rooms })))
+  }, [q.data])
+  const set = (i: number, patch: Partial<{ text: string; rooms: boolean }>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  async function save(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true)
+    const out: Record<string, any> = {}
+    for (const r of rows) {
+      const faults = r.text.split('\n').map((s) => s.trim()).filter(Boolean)
+      if (faults.length) out[r.key] = { rooms: r.rooms, faults }
+    }
+    if (!out._other) out._other = { rooms: false, faults: ['Not working', 'Something else'] }
+    const { error } = await supabase.rpc('customer_app_set_problem_options', { p_options: out })
+    setBusy(false); setMsg(error ? error.message : 'Saved. Customers see the new list right away.'); q.refetch()
+  }
+  return (
+    <form className="card" onSubmit={save}>
+      <h3 style={{ margin: 0 }}>Customer app · problems customers can pick</h3>
+      <p className="muted" style={{ margin: 0 }}>When a customer reports a problem, they pick one of their products, then one of these lines. One problem per line, in the words customers use. Keep "Something else" last. Tick "Ask room numbers" for things fitted in rooms (locks, switches).</p>
+      {q.isLoading && <p>Loading…</p>}
+      {rows.map((r, i) => <div key={r.key} style={{ display: 'grid', gap: 4 }}>
+        <b>{r.key === '_other' ? 'Any other product' : r.key}</b>
+        <textarea rows={Math.max(3, r.text.split('\n').length + 1)} value={r.text} onChange={(e) => set(i, { text: e.target.value })} placeholder={'Not working\nSomething else'} />
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 400 }}><input type="checkbox" checked={r.rooms} onChange={(e) => set(i, { rooms: e.target.checked })} style={{ width: 'auto' }} />Ask room numbers</label>
+      </div>)}
+      <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save problem lists'}</button>
+      {msg && <p className="msg">{msg}</p>}
+    </form>
+  )
+}

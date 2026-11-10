@@ -8,6 +8,7 @@ import Repairs from './Repairs'
 import { CustomerPick, useEmps, useCustomers } from './Pickers'
 import { HandOverButton } from './Reassign'
 import { AgeTag, ageLook } from '../lib/age'
+import { CustomerTicketBar } from './CustomerApp'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const today = () => isoDate()
 const inWarranty = (u?: string | null) => !!u && u >= today()
@@ -19,6 +20,7 @@ export default function AfterSales({ me }: { me: any }) {
   const refresh = () => qc.invalidateQueries({ queryKey: ['aftersales'] })
   const inst = useQuery({ queryKey: ['aftersales', 'inst'], queryFn: async () => { const { data, error } = await supabase.from('installations').select('id,status,technician_id,created_at,job_updates(id,done,note,proof_path,created_at,update_date),site_name,what,installed_on,warranty_until,warranty_months,notes,inquiry_id,employees:technician_id(employee_name),giver:employees!created_by(employee_name),inquiries(customers(customer_name,city)),serials(id,serial_no,room,packing_no)').order('installed_on', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
   const tix = useQuery({ queryKey: ['aftersales', 'tix'], queryFn: async () => { const { data, error } = await supabase.from('service_tickets').select('id,assigned_to,job_updates(id,done,note,proof_path,created_at,update_date),seq,site_name,title,details,priority,status,opened_at,closed_at,installations(warranty_until,inquiries(customers(customer_name,city))),assigned:employees!assigned_to(employee_name),giver:employees!opened_by(employee_name)').order('opened_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
+  const appTix = useQuery({ queryKey: ['aftersales', 'app-tix'], queryFn: async () => { const { data, error } = await supabase.rpc('staff_customer_tickets'); if (error) throw error; return (data ?? {}) as Record<string, any> } })
   async function setStatus(t: any, status: string) { const { error } = await supabase.from('service_tickets').update({ status }).eq('id', t.id); setMsg(error ? error.message : ''); refresh() }
   const [q, setQ] = useState('')
   const found = useQuery({ queryKey: ['aftersales', 'find', q], enabled: q.trim().length >= 3, queryFn: async () => { const { data, error } = await supabase.from('serials').select('id,serial_no,room,packing_no,installations(site_name,installed_on,warranty_until,employees:technician_id(employee_name))').ilike('serial_no', `%${q.trim()}%`).limit(20); if (error) throw error; return data as any[] } })
@@ -55,7 +57,8 @@ export default function AfterSales({ me }: { me: any }) {
           <AgeTag since={t.opened_at} finished={t.status === 'Fixed'} />
           <div className="muted">{[t.site_name, one(one(one(t.installations)?.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(t.giver)?.employee_name ? ` · Given by ${one(t.giver).employee_name}` : ''}</div>
           <div className="muted">Opened {fmt(t.opened_at)}{w ? (inWarranty(w) ? ' · in warranty' : ' · warranty over') : ''}{one(t.assigned)?.employee_name ? ` · ${one(t.assigned).employee_name}` : ''}</div>
-          {t.details && <div className="muted">{t.details}</div>}
+          {t.details && <div className="muted" style={{ whiteSpace: 'pre-line' }}>{t.details}</div>}
+          {appTix.data?.[t.id] && <CustomerTicketBar info={appTix.data[t.id]} seq={t.seq} />}
           <UpdateList list={t.job_updates} />
           {t.status !== 'Fixed' && (me.role === 'admin' || (me.role === 'service' && t.assigned_to === me.id)) && <button className="primary" onClick={() => setUpd({ ticket: t.id, title: `S-${String(t.seq).padStart(3, '0')} · ${t.title}` })}>Update work (partly / fully done)</button>}
           {t.status !== 'Fixed' && <div className="bar"><HandOverButton me={me} kind="ticket" id={t.id} currentId={t.assigned_to} title={`S-${String(t.seq).padStart(3, '0')} · ${t.title}`} /></div>}
