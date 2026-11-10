@@ -94,7 +94,7 @@ export function IndiaMartIntake({ me }: { me: any }) {
   const assignee = raw.data?.indiamartAssignee ?? '', paused = raw.data?.indiamartPaused === true
   async function put(k: string, v: any) { const e = await saveSetting(k, v, me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['intake-settings'] }) }
   async function copy() {
-    const script = SCRIPT.replace('@@URL@@', () => String(import.meta.env.VITE_SUPABASE_URL)).replace('@@KEY@@', () => String(import.meta.env.VITE_SUPABASE_ANON_KEY)).replace('@@SECRET@@', () => sec.data ?? '').replace('@@PARSER@@', () => PARSER)
+    const script = SCRIPT.replace('@@URL@@', () => String(import.meta.env.VITE_SUPABASE_URL).replace(/\s+/g, '')).replace('@@KEY@@', () => String(import.meta.env.VITE_SUPABASE_ANON_KEY).replace(/\s+/g, '')).replace('@@SECRET@@', () => (sec.data ?? '').replace(/\s+/g, '')).replace('@@PARSER@@', () => PARSER)
     try { await navigator.clipboard.writeText(script); setMsg('Script copied. Now paste it into Google Apps Script.') } catch { setMsg('Could not copy. Please try again.') }
   }
   void all
