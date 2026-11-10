@@ -578,6 +578,11 @@ const HI: Record<string, string> = {
 "Not assigned yet": "अभी किसी को नहीं दिया",
 "Note (optional)": "नोट (वैकल्पिक)",
 "No repair boxes yet.": "अभी कोई रिपेयर बॉक्स नहीं है।",
-"You have not saved any updates yet.": "आपने अभी कोई अपडेट सेव नहीं किया है।"
+"You have not saved any updates yet.": "आपने अभी कोई अपडेट सेव नहीं किया है।",
+"Always sold together with (optional)": "हमेशा साथ में बिकता है (वैकल्पिक)",
+"Nothing": "कुछ नहीं",
+"Search the catalogue…": "कैटलॉग में खोजें…",
+"Top": "सबसे ऊपर",
+"Freight charges (extra)": "फ्रेट चार्ज (अतिरिक्त)"
 }
 export default HI
