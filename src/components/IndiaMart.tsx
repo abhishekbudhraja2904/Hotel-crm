@@ -4,14 +4,17 @@ import { supabase } from '../lib/supabase'
 import { useSettings, saveSetting } from '../lib/settings'
 // Admin-only: connects the company Gmail to Hermora so IndiaMART lead emails become inquiries automatically.
 const PARSER = String.raw`function parseLead(text) {
+  // Only read the IndiaMART part: skip the forwarder's signature above it and the IndiaMART footer below it.
+  var a = text.search(/Buyer.?s Contact Details/i); if (a < 0) a = text.search(/Buy ?Lead through IndiaMART/i); if (a >= 0) text = text.slice(a);
+  var z = text.search(/Reply To This Message/i); if (z > 0) text = text.slice(0, z);
   var lines = text.replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(function (l) { return l; });
-  var labels = { quantity: 'quantity', application: 'application', 'access method': 'access_method', 'probable order value': 'order_value', 'probable requirement type': 'requirement_type', email: 'email', company: 'company' };
+  var labels = { quantity: 'quantity', application: 'application', 'access method': 'access_method', 'buyer filled details': 'buyer_filled', 'probable order value': 'order_value', 'probable requirement type': 'requirement_type', email: 'email', company: 'company' };
   var d = {}, used = {};
   for (var i = 0; i < lines.length; i++) {
-    var m = lines[i].match(/^(Quantity|Application|Access Method|Probable Order Value|Probable Requirement Type|Email|Company)\s*[:\-]?\s*(.*)$/i);
+    var m = lines[i].match(/^(Quantity|Application|Access Method|Buyer Filled Details|Probable Order Value|Probable Requirement Type|Email|Company)\s*[:\-]?\s*(.*)$/i);
     if (m) {
       var key = labels[m[1].toLowerCase()], val = m[2];
-      if (!val && lines[i + 1] && !/^(Quantity|Application|Access Method|Probable)/i.test(lines[i + 1])) { val = lines[i + 1]; used[i + 1] = 1; }
+      if (!val && lines[i + 1] && !/^(Quantity|Application|Access Method|Buyer Filled|Probable)/i.test(lines[i + 1])) { val = lines[i + 1]; used[i + 1] = 1; }
       if (val && !d[key]) d[key] = val;
       used[i] = 1;
     }
@@ -33,12 +36,12 @@ const PARSER = String.raw`function parseLead(text) {
   var anchor = ci >= 0 ? ci : pi;
   for (i = anchor - 1; i >= 0 && anchor >= 0; i--) {
     if (used[i] || i === pi) continue;
-    if (lines[i].length <= 40 && !/[@:]|http|lead|indiamart|interested|dear|hello|^hi\b/i.test(lines[i]) && /^[A-Za-z][A-Za-z .'-]+$/.test(lines[i])) { d.name = lines[i]; break; }
+    if (lines[i].length <= 40 && !/[@:]|http|lead|indiamart|interested|dear|hello|^hi\b/i.test(lines[i]) && /^[A-Za-z][A-Za-z .'-]+$/.test(lines[i])) { d.name = lines[i].toLowerCase().replace(/(^|[ .'-])([a-z])/g, function (x, a, b) { return a + b.toUpperCase(); }); break; }
   }
   // product: line just above "Quantity"
   for (i = 0; i < lines.length; i++) {
     if (/^Quantity/i.test(lines[i])) {
-      for (var j = i - 1; j >= 0; j--) { if (!used[j] || true) { if (j !== pi && j !== ci && lines[j] !== d.name && !/^(Application|Access|Probable)/i.test(lines[j])) { d.product = lines[j].replace(/^(Requirement|Product|Looking for|Interested in)\s*[:\-]?\s*/i, ''); break; } } }
+      for (var j = i - 1; j >= 0; j--) { if (!used[j] || true) { if (j !== pi && j !== ci && lines[j] !== d.name && !/^(Application|Access|Buyer|Probable)/i.test(lines[j])) { d.product = lines[j].replace(/^(Requirement|Product|Looking for|Interested in)\s*[:\-]?\s*/i, ''); break; } } }
       break;
     }
   }
@@ -65,7 +68,6 @@ function checkMail() {
     t.getMessages().forEach(function (m) {
       var subject = m.getSubject() || '';
       var body = m.getPlainBody() || '';
-      if (!/lead|enquiry|inquiry|requirement/i.test(subject + ' ' + body.slice(0, 400))) return;
       var d = parseLead(body);
       d.cc = ((m.getCc() || '') + ',' + (m.getTo() || '')).match(/[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [];
       var res;
