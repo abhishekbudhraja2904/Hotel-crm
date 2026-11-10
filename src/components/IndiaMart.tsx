@@ -82,7 +82,7 @@ function checkMail() {
 
 function setup() {
   ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger('checkMail').timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger('checkMail').timeBased().everyMinutes(1).create();
   checkMail();
 }
 `
