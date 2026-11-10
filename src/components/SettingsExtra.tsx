@@ -86,3 +86,17 @@ export function KitContents({ me }: { me: any }) {
       <input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={sel.includes(c)} onChange={() => toggle(c)} />{c}</label>)}
     {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save kit</button></div>
 }
+
+// Which product groups are always sold together, e.g. Kettle with Tray.
+export function SoldTogether({ me }: { me: any }) {
+  const qc = useQueryClient(), s = useSettings(), [a, setA] = useState(''), [b, setB] = useState(''), [msg, setMsg] = useState('')
+  const fams = useQuery({ queryKey: ['catalogue-admin', 'families'], queryFn: async () => { const { data } = await supabase.from('products').select('family').not('family', 'is', null); return [...new Set((data ?? []).map((r: any) => String(r.family)))].sort() } })
+  async function put(pairs: string[][]) { const e = await saveSetting('soldTogether', pairs, me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] }) }
+  const add = () => { if (!a || !b || a === b) return setMsg('Choose two different groups.'); if (s.soldTogether.some((p) => p.includes(a) && p.includes(b))) return setMsg('Already added.'); put([...s.soldTogether, [a, b]]) }
+  return <div className="card"><h3 style={{ margin: 0 }}>Products sold together</h3>
+    <p className="muted" style={{ margin: 0 }}>Give products a group in the catalogue (for example Kettle, Tray). When someone picks a product from one group on an inquiry or quotation, a row for the paired group is added and they only choose the model.</p>
+    {s.soldTogether.map((p, i) => <div className="row" key={i}><span>{p[0]} ↔ {p[1]}</span><button className="link" onClick={() => put(s.soldTogether.filter((_, x) => x !== i))}>Remove</button></div>)}
+    {!s.soldTogether.length && <p className="empty">Nothing paired yet.</p>}
+    <div className="bar"><select value={a} onChange={(e) => setA(e.target.value)}><option value="">Group…</option>{fams.data?.map((f) => <option key={f}>{f}</option>)}</select><select value={b} onChange={(e) => setB(e.target.value)}><option value="">Sold with…</option>{fams.data?.map((f) => <option key={f}>{f}</option>)}</select><button onClick={add}>Add</button></div>
+    {msg && <p className="msg">{msg}</p>}</div>
+}

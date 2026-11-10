@@ -18,7 +18,7 @@ export default function Catalogue() {
     {list.isLoading && <p className="empty">Loading…</p>}
     {list.data && !vis.length && <p className="empty">No products yet.</p>}
     {vis.map((p) => <div key={p.id} className="row" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-      <div><b>{p.product_name}</b><div className="muted">{p.product_category}{p.product_code ? ` · ${p.product_code}` : ''} · {p.unit}{Number(p.low_stock_level) > 0 ? ` · alert at ${Number(p.low_stock_level)}` : ''}</div>{p.companion_name && <div className="muted">Always sold with {p.companion_name}</div>}</div>
+      <div><b>{p.product_name}</b><div className="muted">{p.product_category}{p.product_code ? ` · ${p.product_code}` : ''} · {p.unit}{Number(p.low_stock_level) > 0 ? ` · alert at ${Number(p.low_stock_level)}` : ''}</div>{p.family && <div className="muted">Group: {p.family}</div>}</div>
       <span style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{!find.trim() && <><button className="link" onClick={() => move(p, 'top')}>Top</button><button className="link" aria-label="Move up" onClick={() => move(p, 'up')}>▲</button><button className="link" aria-label="Move down" onClick={() => move(p, 'down')}>▼</button></>}<button className="link" onClick={() => setEdit(p)}>Edit</button><button className="link" onClick={() => confirm(`Hide ${p.product_name}?`) && setActive(p, false)}>Hide</button></span></div>)}
     {hid.length > 0 && <button className="link" onClick={() => setShowHidden(!showHidden)}>{showHidden ? 'Hide' : 'Show'} hidden products ({hid.length})</button>}
     {showHidden && hid.map((p) => <div key={p.id} className="row"><span className="muted">{p.product_name}</span><button className="link" onClick={() => setActive(p, true)}>Show again</button></div>)}
@@ -27,12 +27,12 @@ export default function Catalogue() {
 }
 function ProductEditor({ product, others, categories, onClose, onDone }: { product: any; others: any[]; categories: string[]; onClose: () => void; onDone: () => void }) {
   const cats = product && !categories.includes(product.product_category) ? [product.product_category, ...categories] : categories
-  const [f, setF] = useState({ name: product?.product_name ?? '', cat: product?.product_category ?? categories[0], code: product?.product_code ?? '', unit: product?.unit ?? 'pcs', desc: product?.description ?? '', low: String(Number(product?.low_stock_level ?? 0) || ''), comp: (product?.companion_id ?? '') as string })
+  const [f, setF] = useState({ name: product?.product_name ?? '', cat: product?.product_category ?? categories[0], code: product?.product_code ?? '', unit: product?.unit ?? 'pcs', desc: product?.description ?? '', low: String(Number(product?.low_stock_level ?? 0) || ''), fam: (product?.family ?? '') as string })
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false), [confirmDel, setConfirmDel] = useState('')
   async function save(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr('')
     const r = await supabase.rpc('admin_save_product', { p_id: product?.id ?? null, p_name: f.name, p_cat: f.cat, p_code: f.code, p_unit: f.unit, p_desc: f.desc, p_low: Number(f.low) || 0 })
-    const e2 = r.error ? r.error : (f.comp || product?.companion_id) ? (await supabase.rpc('set_product_companion', { p_id: r.data, p_other: f.comp || null })).error : null
+    const e2 = r.error ? r.error : (f.fam.trim() || product?.family) ? (await supabase.rpc('set_product_family', { p_id: r.data, p_family: f.fam })).error : null
     setBusy(false); if (e2) setErr(e2.message); else { onDone(); onClose() }
   }
   async function del() { const { error } = await supabase.rpc('delete_product', { p_id: product.id }); if (error) setErr(error.message); else { onDone(); onClose() } }
@@ -44,7 +44,7 @@ function ProductEditor({ product, others, categories, onClose, onDone }: { produ
     <label>Counted in (for example pcs, sets, cards)<input value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} /></label>
     <label>Description (optional)<input value={f.desc} onChange={(e) => setF({ ...f, desc: e.target.value })} /></label>
     <label>Low-stock alert when the store has this many or fewer (0 = no alert)<input type="number" min="0" value={f.low} onChange={(e) => setF({ ...f, low: e.target.value })} /></label>
-    <label>Always sold together with (optional)<select value={f.comp} onChange={(e) => setF({ ...f, comp: e.target.value })}><option value="">Nothing</option>{others.filter((o) => o.id !== product?.id).map((o) => <option key={o.id} value={o.id}>{o.product_name}</option>)}</select></label>
+    <label>Group (optional, e.g. Kettle or Tray: used for products sold together)<input list="fam-list" value={f.fam} onChange={(e) => setF({ ...f, fam: e.target.value })} /><datalist id="fam-list">{[...new Set(others.map((o) => o.family).filter(Boolean))].map((x) => <option key={x} value={x} />)}</datalist></label>
     {err && <p className="msg">{err}</p>}
     <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button type="button" className="link" onClick={onClose}>Cancel</button>
     {product && <><hr style={{ border: 0, borderTop: '1px solid var(--line)', width: '100%' }} />
