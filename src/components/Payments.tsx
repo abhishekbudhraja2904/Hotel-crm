@@ -12,7 +12,7 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
   const qc = useQueryClient(), isAdmin = me.role === 'admin', { gstRate } = useSettings()
   const key = ['money', inquiry.id]
   const { data, isLoading } = useQuery({ queryKey: key, queryFn: async () => {
-    const f = await supabase.from('order_finance').select('order_value,balance_due_on,base_value,gst_mode,gst_rate,gst_amount,courier_charges,courier_gst').eq('inquiry_id', inquiry.id).maybeSingle(); if (f.error) throw f.error
+    const f = await supabase.from('order_finance').select('order_value,balance_due_on,base_value,gst_mode,gst_rate,gst_amount,courier_charges,courier_gst,settled_amount,settled_note').eq('inquiry_id', inquiry.id).maybeSingle(); if (f.error) throw f.error
     const p = await supabase.from('payments').select('id,amount,paid_on,note,created_at,employees:created_by(employee_name)').eq('inquiry_id', inquiry.id).order('paid_on', { ascending: false }).order('created_at', { ascending: false }); if (p.error) throw p.error
     const q = await supabase.from('quotations').select('quotation_number,version,total_amount,freight_charges,freight_gst,gst_mode,gst_rate').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false }).limit(1); if (q.error) throw q.error
     return { fin: f.data, pays: p.data as any[], quote: (q.data?.[0] ?? null) as any } } })
@@ -34,8 +34,8 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
   const CG = C > 0 && cgOn ? (m === 'plus' ? r2((C * rate) / 100) : r2(C - C / (1 + rate / 100))) : 0
   const gst = legacy && base === null && mode === null ? 0 : m === 'plus' ? r2((B * rate) / 100) : r2(B - B / (1 + rate / 100))
   const total = m === 'plus' ? r2(B + gst + C + CG) : r2(B + C)
-  const value = Number(fin?.order_value ?? 0), paid = (data?.pays ?? []).reduce((n, p) => n + Number(p.amount), 0), balance = Math.max(0, value - paid)
-  const pct = value > 0 ? Math.min(100, Math.round((paid / value) * 100)) : 0, full = value > 0 && balance < 0.005
+  const value = Number(fin?.order_value ?? 0), paid = (data?.pays ?? []).reduce((n, p) => n + Number(p.amount), 0), settled = Number(fin?.settled_amount ?? 0), balance = value - paid - settled < 0.999 ? 0 : value - paid - settled
+  const full = value > 0 && balance < 0.999, pct = full ? 100 : value > 0 ? Math.min(100, Math.round(((paid + settled) / value) * 100)) : 0
   async function saveValue() {
     if (!(B > 0)) return setErr('Enter the order value.')
     setErr(''); setBusy(true)
@@ -51,6 +51,11 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
     const { error } = await supabase.from('payments').insert({ inquiry_id: inquiry.id, amount: a, paid_on: on, note: note || null, created_by: me.id })
     setBusy(false); if (error) return setErr(error.message); setAmt(''); setNote(''); refresh()
   }
+  async function settle() {
+    const n = prompt(`Mark this order as fully paid? The remaining ${inr(balance)} will be written off.\n\nReason (for example: discount agreed):`); if (n === null) return
+    setErr(''); const { error } = await supabase.rpc('settle_balance', { p_inq: inquiry.id, p_note: n }); if (error) setErr(error.message); refresh()
+  }
+  async function unsettle() { if (!confirm('Bring the written-off balance back?')) return; setErr(''); const { error } = await supabase.rpc('unsettle_balance', { p_inq: inquiry.id }); if (error) setErr(error.message); refresh() }
   async function del(id: string) { if (!confirm('Delete this payment entry?')) return; const { error } = await supabase.from('payments').delete().eq('id', id); if (error) setErr(error.message); refresh() }
   return (
     <div className="modal"><div className="card">
@@ -62,8 +67,11 @@ export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: a
           <div className="row"><span className="muted">Total to receive</span><b>{fin ? inr(value) : 'Not entered'}</b></div>
           <div className="row"><span className="muted">Received</span><b>{inr(paid)}</b></div>
           <div className={`paybar${full ? ' full' : ''}`}><i style={{ width: `${pct}%` }} /></div>
+          {settled > 0 && <div className="row"><span className="muted">Written off{fin?.settled_note ? ` (${fin.settled_note})` : ''}</span><b>{inr(settled)}</b></div>}
           <div className="row"><span className="muted">Balance{fin?.balance_due_on ? ` · due ${fmtDate(fin.balance_due_on)}` : ''}</span><b>{inr(balance)}</b></div>
           {full && <span className="pill" style={{ justifySelf: 'start' }}>Paid in full</span>}
+          {isAdmin && fin && balance > 0 && <button type="button" onClick={settle}>Mark as fully paid (write off {inr(balance)})</button>}
+          {isAdmin && settled > 0 && <button type="button" className="link" style={{ justifySelf: 'start' }} onClick={unsettle}>Undo write-off</button>}
           {balance > 0 && fin?.balance_due_on && fin.balance_due_on < isoDate() && <span className="pill Urgent" style={{ justifySelf: 'start' }}>Balance overdue</span>}
         </div>
         <h4 style={{ margin: '6px 0 0' }}>Order value</h4>
