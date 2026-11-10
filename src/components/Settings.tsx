@@ -6,6 +6,7 @@ import { useDragReorder } from '../lib/drag'
 import { useSettings, saveSetting, FIRST, LAST, DEFAULT_TILES, Tile } from '../lib/settings'
 import Catalogue from './Catalogue'
 import ExcelCard from './ExcelCard'
+import { IndiaMartIntake } from './IndiaMart'
 import { PaymentRules, ClockRules, OfficeNetwork, StaffRules, KitContents, SoldTogether, LockMortis } from './SettingsExtra'
 
 type Row = { orig?: string; name: string }
@@ -126,6 +127,7 @@ export default function Settings({ me }: { me: any }) {
         <KitContents me={me} />
         <SoldTogether me={me} />
         <LockMortis me={me} />
+        <IndiaMartIntake me={me} />
         <ListEditor title="Inquiry sources" hint="Where an inquiry came from, e.g. IndiaMART. Renaming does not change old records." values={s.sources} onSave={(i) => saveList('sources', i)} />
         <ListEditor title="Reasons an inquiry is lost" hint="The choices shown when someone marks an inquiry Lost. Renaming does not change old records." values={s.lostReasons} onSave={(i) => saveList('lostReasons', i)} />
         <TileEditor tiles={s.tiles} stages={s.stages} onSave={async (t) => { const e = await saveSetting('tiles', t, me.id); done(); return e }} />
