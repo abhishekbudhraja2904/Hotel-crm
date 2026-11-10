@@ -100,3 +100,18 @@ export function SoldTogether({ me }: { me: any }) {
     <div className="bar"><select value={a} onChange={(e) => setA(e.target.value)}><option value="">Group…</option>{fams.data?.map((f) => <option key={f}>{f}</option>)}</select><select value={b} onChange={(e) => setB(e.target.value)}><option value="">Sold with…</option>{fams.data?.map((f) => <option key={f}>{f}</option>)}</select><button onClick={add}>Add</button></div>
     {msg && <p className="msg">{msg}</p>}</div>
 }
+
+// Lock mortis: which products are locks, which spare part is the standard mortis, and which mortis can be chosen instead.
+export function LockMortis({ me }: { me: any }) {
+  const qc = useQueryClient(), s = useSettings(), [msg, setMsg] = useState('')
+  const spares = useQuery({ queryKey: ['spares', 'names'], queryFn: async () => { const { data } = await supabase.from('spare_parts').select('id,name').eq('active', true).order('name'); return (data ?? []) as any[] } })
+  async function put(key: string, v: any) { const e = await saveSetting(key, v, me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] }); qc.invalidateQueries({ queryKey: ['mortis-options'] }) }
+  const m = s.mortis
+  return <div className="card"><h3 style={{ margin: 0 }}>Lock mortis</h3>
+    <p className="muted" style={{ margin: 0 }}>Every lock normally has the standard mortis. When a sales person picks another mortis on a lock, that mortis is taken from the spare parts when the order is dispatched, and the standard mortis goes back into the spare parts.</p>
+    <label>Products in this category are locks<select value={m.category} onChange={(e) => put('mortisCategory', e.target.value)}><option value="">None (feature off)</option>{s.categories.map((c) => <option key={c}>{c}</option>)}</select></label>
+    <label>The standard mortis is the spare part<select value={m.standardId} onChange={(e) => put('standardMortisId', e.target.value)}><option value="">Choose…</option>{spares.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+    <div><b>Mortis that can be chosen instead</b></div>
+    {spares.data?.filter((p) => p.id !== m.standardId).map((p) => <label key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row', color: 'inherit', fontSize: 14 }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={m.optionIds.includes(p.id)} onChange={(e) => put('mortisOptionIds', e.target.checked ? [...m.optionIds, p.id] : m.optionIds.filter((x) => x !== p.id))} />{p.name}</label>)}
+    {msg && <p className="msg">{msg}</p>}</div>
+}

@@ -14,12 +14,11 @@ import InquiryBar, { useMoney } from './Progress'
 import ItemsEditor, { ItemRow, newRow, rowsFromItems, useCatalogue } from './ItemsEditor'
 import Dispatch from './Dispatch'
 import { fmtDate, fmtDateTime } from '../lib/dates'
-import CustomerApp from './CustomerApp'
 
 export default function Inquiries({ me }: { me: any }) {
   const qc = useQueryClient()
   const { stages: STAGES } = useSettings()
-  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null), [quoFor, setQuoFor] = useState<any>(null), [quoFormFor, setQuoFormFor] = useState<any>(null), [editFor, setEditFor] = useState<any>(null), [dispFor, setDispFor] = useState<any>(null), [appFor, setAppFor] = useState<any>(null)
+  const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null), [quoFor, setQuoFor] = useState<any>(null), [quoFormFor, setQuoFormFor] = useState<any>(null), [editFor, setEditFor] = useState<any>(null), [dispFor, setDispFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const [emp, setEmp] = useState('')
@@ -28,7 +27,7 @@ export default function Inquiries({ me }: { me: any }) {
     queryKey: ['inquiries'],
     queryFn: async () => {
       const { data, error } = await supabase.from('inquiries')
-        .select('id,customer_id,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
+        .select('id,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
         .is('archived_at', null).order('created_at', { ascending: false }).limit(200)
       if (error) throw error
       return data
@@ -88,7 +87,7 @@ export default function Inquiries({ me }: { me: any }) {
           <div className="muted">{r.inquiry_items?.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || r.inquiry_title || 'No product yet'}</div>
           <div className="muted">Assigned: {r.assigned?.employee_name ?? 'Unassigned'} · Next follow-up: {r.next_followup_at ? fmtDateTime(r.next_followup_at) : '—'}</div>
           <InquiryBar r={r} stages={STAGES} money={money.data} />
-          {r.sales_stage === 'Order Confirmed' && (() => { const m = money.data?.[r.id]; return <div className="row"><div className="muted">{r.packing_no ? <>Packing no. <b>{r.packing_no}</b></> : null}{m?.due ? ` · balance due ${fmtDate(m.due)}` : ''}</div><span style={{ display: 'flex', gap: 10 }}><button className="link" onClick={() => setPayFor(r)}>Payments</button>{me.role !== 'service' && <button className="link" onClick={() => setDispFor(r)}>Dispatch</button>}{(isAdmin || me.role === 'sales') && <button className="link" onClick={() => setAppFor(r)}>Customer app</button>}</span></div> })()}
+          {r.sales_stage === 'Order Confirmed' && (() => { const m = money.data?.[r.id]; return <div className="row"><div className="muted">{r.packing_no ? <>Packing no. <b>{r.packing_no}</b></> : null}{m?.due ? ` · balance due ${fmtDate(m.due)}` : ''}</div><span style={{ display: 'flex', gap: 10 }}><button className="link" onClick={() => setPayFor(r)}>Payments</button>{me.role !== 'service' && <button className="link" onClick={() => setDispFor(r)}>Dispatch</button>}</span></div> })()}
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
@@ -105,7 +104,6 @@ export default function Inquiries({ me }: { me: any }) {
       {fuFor && <ScheduleFollowup me={me} inquiryId={fuFor.id} assignedTo={fuFor.assigned_to} title="Add a follow-up" who={fuFor.customers} onClose={() => setFuFor(null)} />}
       {editFor && <EditItems inquiry={editFor} onClose={() => setEditFor(null)} />}
       {dispFor && <Dispatch me={me} inquiry={dispFor} onClose={() => setDispFor(null)} />}
-      {appFor && <CustomerApp customerId={appFor.customer_id} name={appFor.customers?.customer_name ?? ''} isAdmin={isAdmin} onClose={() => setAppFor(null)} />}
       {open && <NewInquiry me={me} emps={isAdmin ? emps : []} onClose={() => setOpen(false)} />}
     </section>
   )
@@ -129,7 +127,7 @@ function NewInquiry({ me, emps, onClose }: { me: any; emps: any[]; onClose: () =
       const i = await supabase.from('inquiries').insert({ customer_id: c.data.id, inquiry_title: f.title || null, priority: f.priority, inquiry_source: source, assigned_to: f.assign || me.id }).select('id').single()
       if (i.error) throw i.error
       if (used.length) {
-        const it = await supabase.from('inquiry_items').insert(used.map((r) => { const p = prods.find((x) => x.id === r.pid)!; return { inquiry_id: i.data.id, product_id: p.id, product_name_snapshot: p.product_name, unit: p.unit ?? null, quantity: Number(r.qty) } }))
+        const it = await supabase.from('inquiry_items').insert(used.map((r) => { const p = prods.find((x) => x.id === r.pid)!; return { inquiry_id: i.data.id, product_id: p.id, product_name_snapshot: p.product_name, unit: p.unit ?? null, quantity: Number(r.qty), mortis_spare_id: r.mortis || null } }))
         if (it.error) throw it.error
       }
       const fu = await supabase.from('followups').insert({ inquiry_id: i.data.id, assigned_to: f.assign || me.id, followup_type: 'Phone Call', scheduled_at: new Date(Date.now() + 36e5).toISOString(), source_rule: 'first_contact', notes: 'First contact', created_by: me.id })
@@ -158,13 +156,13 @@ function NewInquiry({ me, emps, onClose }: { me: any; emps: any[]; onClose: () =
 function EditItems({ inquiry, onClose }: { inquiry: any; onClose: () => void }) {
   const qc = useQueryClient(), cat = useCatalogue(), [rows, setRows] = useState<ItemRow[] | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
   const items = useQuery({ queryKey: ['edit-items', inquiry.id], queryFn: async () => {
-    const { data, error } = await supabase.from('inquiry_items').select('id,product_id,quantity').eq('inquiry_id', inquiry.id).order('created_at'); if (error) throw error; return data as any[] } })
+    const { data, error } = await supabase.from('inquiry_items').select('id,product_id,quantity,mortis_spare_id').eq('inquiry_id', inquiry.id).order('created_at'); if (error) throw error; return data as any[] } })
   if (cat.data && items.data && rows === null) { const r = rowsFromItems(items.data, cat.data); setRows(r.length ? r : [newRow()]) }
   async function save() {
     setErr(''); const prods = cat.data ?? [], used = (rows ?? []).filter((r) => r.pid || r.qty)
     for (const r of used) { const p = prods.find((x) => x.id === r.pid); if (!p) return setErr('Choose a category and a product on every item (or remove the empty item).'); if (!(Number(r.qty) > 0)) return setErr(`Enter the quantity for ${p.product_name}.`) }
     setBusy(true)
-    const { error } = await supabase.rpc('save_inquiry_items', { p_inq: inquiry.id, p_items: used.map((r) => ({ product_id: r.pid, quantity: Number(r.qty) })) })
+    const { error } = await supabase.rpc('save_inquiry_items', { p_inq: inquiry.id, p_items: used.map((r) => ({ product_id: r.pid, quantity: Number(r.qty), mortis_spare_id: r.mortis || null })) })
     setBusy(false); if (error) return setErr(error.message)
     qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['quote-items'] }); onClose()
   }

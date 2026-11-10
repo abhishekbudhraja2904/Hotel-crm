@@ -21,7 +21,7 @@ export default function InquiryBar({ r, stages, money }: { r: { id: string; sale
     const m = money?.[r.id], value = m?.value ?? 0, paid = m?.paid ?? 0, pct = value > 0 ? Math.min(100, (paid / value) * 100) : 0, full = value > 0 && paid >= value - 0.001
     return <div className="barwrap">
       <div className={`paybar${full ? ' full' : ''}`}><i style={{ width: `${pct}%` }} /></div>
-      <div className="barnote">{value > 0 ? `${inr(paid)} of ${inr(value)} received${full ? ' · paid in full' : ''}` : 'Order value not entered yet'}{r.dispatched_at && <> · <span className="tick">✓ Dispatched</span></>}</div></div>
+      <div className="barnote">{value > 0 ? `${inr(Math.round(paid))} of ${inr(Math.round(value))} received${full ? ' · paid in full' : ''}` : 'Order value not entered yet'}{r.dispatched_at && <> · <span className="tick">✓ Dispatched</span></>}</div></div>
   }
   const steps = barSteps(stages), at = Math.max(0, steps.indexOf(r.sales_stage)), col = stageColour(r.sales_stage, stages)
   return <div className="barwrap"><div className="stbar" aria-label={`Stage ${at + 1} of ${steps.length}`}>{steps.map((s, i) => <i key={s} style={i <= at ? { background: col } : undefined} />)}</div>

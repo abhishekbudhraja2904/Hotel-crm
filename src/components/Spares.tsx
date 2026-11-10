@@ -8,7 +8,7 @@ const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 export default function Spares({ me }: { me: any }) {
   const qc = useQueryClient(), canEdit = me.role === 'admin' || me.role === 'service', [msg, setMsg] = useState('')
   const [modal, setModal] = useState<null | { kind: 'new' } | { kind: 'in' | 'fix' | 'edit'; p: any }>(null), [showMoves, setShowMoves] = useState(false)
-  const list = useQuery({ queryKey: ['spares'], queryFn: async () => { const { data, error } = await supabase.from('spare_parts').select('id,name,code,in_stock,low_level,active').order('name'); if (error) throw error; return data as any[] } })
+  const list = useQuery({ queryKey: ['spares'], queryFn: async () => { const { data, error } = await supabase.rpc('spare_overview'); if (error) throw error; return ((data ?? []) as any[]).slice().sort((a, b) => String(a.name).localeCompare(String(b.name))) } })
   const moves = useQuery({ queryKey: ['spares', 'moves'], enabled: showMoves, queryFn: async () => { const { data, error } = await supabase.from('spare_movements').select('id,qty_change,reason,note,created_at,spare_parts(name),employees:created_by(employee_name)').order('created_at', { ascending: false }).limit(30); if (error) throw error; return data as any[] } })
   const refresh = () => qc.invalidateQueries({ queryKey: ['spares'] })
   const low = (p: any) => Number(p.low_level) > 0 && Number(p.in_stock) <= Number(p.low_level)
@@ -19,7 +19,7 @@ export default function Spares({ me }: { me: any }) {
     {list.data && !list.data.length && <p className="empty">No spare parts yet.{canEdit ? ' Add the first one above.' : ''}</p>}
     {list.data?.map((p) => <div className="card" key={p.id} style={{ borderLeftColor: low(p) ? '#9b3b30' : '#6B8F72', opacity: p.active ? 1 : 0.55 }}>
       <div className="row" style={{ flexWrap: 'nowrap' }}>
-        <div style={{ minWidth: 0 }}><b>{p.name}</b>{!p.active && <span className="muted"> (not in use)</span>}<div className="muted">{p.code ?? ''}{Number(p.low_level) > 0 ? `${p.code ? ' · ' : ''}warn at ${n(p.low_level)}` : ''}</div>{low(p) && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: order more soon</div>}</div>
+        <div style={{ minWidth: 0 }}><b>{p.name}</b>{!p.active && <span className="muted"> (not in use)</span>}<div className="muted">{p.code ?? ''}{Number(p.low_level) > 0 ? `${p.code ? ' · ' : ''}warn at ${n(p.low_level)}` : ''}</div>{Number(p.locked) > 0 && <div className="muted" style={{ color: '#a8641c', fontWeight: 600 }}>{n(p.locked)} reserved for confirmed orders · {n(p.free)} free</div>}{low(p) && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: order more soon</div>}</div>
         <div className="bignum" style={low(p) ? { color: '#9b3b30' } : {}}>{n(p.in_stock)}<small>in stock</small></div></div>
       {canEdit && <div className="bar"><button onClick={() => setModal({ kind: 'in', p })}>Stock came in</button><button onClick={() => setModal({ kind: 'fix', p })}>Fix count</button><button onClick={() => setModal({ kind: 'edit', p })}>Edit</button></div>}
     </div>)}

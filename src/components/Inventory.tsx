@@ -51,7 +51,7 @@ export default function Inventory({ me }: { me: any }) {
           <div className="pack-big">{r.packing_no ?? '—'}</div>
           {col ? <div className="okbox">Packed and fully paid. Collect this order, it is ready to go.</div>
             : <div className="warnbox">Pack the items below and mark every carton with packing number <b>{r.packing_no}</b>.</div>}
-          {r.items?.map((i: any, x: number) => <div key={x} style={{ fontSize: 16 }}><b>{n(i.qty)}</b>{i.unit ? ` ${i.unit}` : ''} × <b>{i.name}</b></div>)}
+          {r.items?.map((i: any, x: number) => <div key={x} style={{ fontSize: 16 }}><b>{n(i.qty)}</b>{i.unit ? ` ${i.unit}` : ''} × <b>{i.name}</b>{i.mortis && <div className="muted" style={{ fontSize: 14 }}>Fit mortis: {i.mortis}</div>}</div>)}
           <div><b>{r.customer}</b>{r.city ? ` · ${r.city}` : ''}</div>
           <div className="barwrap"><div className={`paybar${Number(r.paid_pct) >= 100 ? ' full' : ''}`}><i style={{ width: `${Math.min(100, Number(r.paid_pct) || 0)}%` }} /></div>
             <div className="barnote">{Number(r.paid_pct) >= 100 ? 'Payment received in full' : 'Payment not complete yet'}</div></div>
