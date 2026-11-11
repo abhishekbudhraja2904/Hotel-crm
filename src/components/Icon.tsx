@@ -11,7 +11,8 @@ const P: Record<string, string> = {
   team: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11a2.5 2.5 0 1 0 0-5M17 14c2.5.3 4 2.4 4 5',
   quo: 'M7 3h8l4 4v14H7zM15 3v4h4M10 12h6M10 16h6',
   svc: 'M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6zM9 12l2 2 4-4',
-  set: 'M5 7h9M18 7h1M5 17h1M10 17h9M14 4v6M8 14v6'
+  set: 'M5 7h9M18 7h1M5 17h1M10 17h9M14 4v6M8 14v6',
+  cust: 'M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2M10 7h4'
 }
 export default function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={P[name] || P.dash} /></svg>
