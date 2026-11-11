@@ -6,7 +6,8 @@ import { useDragReorder } from '../lib/drag'
 import { useSettings, saveSetting, FIRST, LAST, DEFAULT_TILES, Tile } from '../lib/settings'
 import Catalogue from './Catalogue'
 import ExcelCard from './ExcelCard'
-import { PaymentRules, ClockRules, OfficeNetwork, StaffRules, KitContents } from './SettingsExtra'
+import { IndiaMartIntake } from './IndiaMart'
+import { PaymentRules, ClockRules, OfficeNetwork, StaffRules, KitContents, SoldTogether, LockMortis } from './SettingsExtra'
 import { CustomerAppContacts, CustomerAppProblems } from './CustomerApp'
 
 type Row = { orig?: string; name: string }
@@ -82,6 +83,19 @@ export default function Settings({ me }: { me: any }) {
   const mid = s.stages.filter((x) => x !== FIRST && !LAST.includes(x))
   const done = () => qc.invalidateQueries({ queryKey: ['settings'] })
   async function saveList(key: string, items: Row[]) { const e = await saveSetting(key, items.map((i) => i.name), me.id); done(); return e }
+  // Categories: renaming carries the products (and the hotel lock kit) along; a category with products cannot be removed.
+  async function saveCats(items: Row[], removed: string[]) {
+    if (removed.length) {
+      const { count, error } = await supabase.from('products').select('id', { count: 'exact', head: true }).in('product_category', removed)
+      if (error) return error.message
+      if (count) return 'Move the products out of that category first, then remove it.'
+    }
+    const renamed = items.filter((it) => it.orig && it.orig !== it.name)
+    for (const it of renamed) { const { error } = await supabase.rpc('rename_product_category', { p_old: it.orig, p_new: it.name }); if (error) return error.message }
+    if (renamed.length && s.kitCategories.length) await saveSetting('kitCategories', s.kitCategories.map((k) => renamed.find((r) => r.orig === k)?.name ?? k), me.id)
+    for (const k of ['catalogue-admin', 'catalogue', 'inventory']) qc.invalidateQueries({ queryKey: [k] })
+    return saveList('categories', items)
+  }
   async function saveStages(items: Row[], removed: string[]) {
     for (const n of removed) {
       const { count, error } = await supabase.from('inquiries').select('id', { count: 'exact', head: true }).eq('sales_stage', n)
@@ -106,15 +120,17 @@ export default function Settings({ me }: { me: any }) {
       {(isAdmin || me.role === 'sales') && <ExcelCard me={me} />}
       {isAdmin ? <>
         <h3>Company settings (admin only)</h3>
-        <Catalogue />
+        <Catalogue categoryEditor={<ListEditor title="Categories" hint="Add, rename, reorder (drag) or remove categories. Renaming moves its products along. A category can be removed only when it has no products." values={s.categories} onSave={saveCats} />} />
         <PaymentRules me={me} />
         <StaffRules me={me} />
         <CustomerAppContacts />
         <CustomerAppProblems />
         <OfficeNetwork />
         <ClockRules me={me} />
-        <ListEditor title="Product categories" hint="Shown when adding an inquiry or a stock product. Renaming does not change old records." values={s.categories} onSave={(i) => saveList('categories', i)} />
         <KitContents me={me} />
+        <SoldTogether me={me} />
+        <LockMortis me={me} />
+        <IndiaMartIntake me={me} />
         <ListEditor title="Inquiry sources" hint="Where an inquiry came from, e.g. IndiaMART. Renaming does not change old records." values={s.sources} onSave={(i) => saveList('sources', i)} />
         <ListEditor title="Reasons an inquiry is lost" hint="The choices shown when someone marks an inquiry Lost. Renaming does not change old records." values={s.lostReasons} onSave={(i) => saveList('lostReasons', i)} />
         <TileEditor tiles={s.tiles} stages={s.stages} onSave={async (t) => { const e = await saveSetting('tiles', t, me.id); done(); return e }} />
