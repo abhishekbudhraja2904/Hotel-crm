@@ -3,6 +3,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useSettings, saveSetting } from '../lib/settings'
 // Admin-only settings cards: GST and payment rule, auto clock-out, office network, and per-person rules.
+export function PackReminderRule({ me }: { me: any }) {
+  const qc = useQueryClient(), s = useSettings(), [h, setH] = useState(String(s.packReminderHours)), [msg, setMsg] = useState('')
+  useEffect(() => { setH(String(s.packReminderHours)) }, [s.packReminderHours])
+  async function save() { const v = Number(h); if (!(v >= 0.5 && v <= 72)) return setMsg('Choose between 0.5 and 72 hours.'); const e = await saveSetting('packReminderHours', v, me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] }) }
+  return <div className="card"><h3 style={{ margin: 0 }}>Packing reminders</h3>
+    <p className="muted" style={{ margin: 0 }}>When packing is given to a service employee, they and the person who assigned it are reminded again and again until "Packing done" is tapped. Sales can change the gap for one order in its Dispatch window.</p>
+    <label>Remind every (hours)<input type="number" min="0.5" max="72" step="0.5" value={h} onChange={(e) => setH(e.target.value)} /></label>
+    {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save</button></div>
+}
 export function PaymentRules({ me }: { me: any }) {
   const qc = useQueryClient(), s = useSettings(), [req, setReq] = useState(s.requireFullPayment), [msg, setMsg] = useState('')
   useEffect(() => { setReq(s.requireFullPayment) }, [s.requireFullPayment])

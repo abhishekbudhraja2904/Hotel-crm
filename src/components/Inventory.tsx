@@ -22,6 +22,7 @@ export default function Inventory({ me }: { me: any }) {
   const queue = useQuery({ queryKey: ['inventory', 'queue'], refetchInterval: 30000, queryFn: async () => { const { data, error } = await supabase.rpc('pack_queue'); if (error) throw error; return data as any[] } })
   const moves = useQuery({ queryKey: ['inventory', 'moves'], enabled: showMoves, queryFn: async () => { const { data, error } = await supabase.from('stock_movements').select('id,qty_change,reason,note,created_at,products(product_name),employees:created_by(employee_name)').order('created_at', { ascending: false }).limit(25); if (error) throw error; return data } })
   const canEdit = !!can.data, k = keeper.data
+  async function packDone(r: any) { if (!confirm(`Packing no. ${r.packing_no} is fully packed?`)) return; const { error } = await supabase.rpc('mark_packing_done', { p_inq: r.inquiry_id }); setMsg(error ? error.message : ''); qc.invalidateQueries({ queryKey: ['inventory'] }) }
   async function takeBack() { if (!confirm('Take back stock updating from ' + k?.employee_name + '?')) return; const { error } = await supabase.rpc('clear_inventory_keeper'); setMsg(error ? error.message : ''); refresh() }
   const keeperLine = () => {
     if (!k) return isAdmin ? 'Nobody else is allowed to update stock right now.' : 'Only the admin can update stock right now.'
@@ -57,6 +58,9 @@ export default function Inventory({ me }: { me: any }) {
             <div className="barnote">{Number(r.paid_pct) >= 100 ? 'Payment received in full' : 'Payment not complete yet'}</div></div>
           <AgeTag since={r.since} />
           <div className="muted">Assigned by {r.assigned_by ?? '—'}{r.packer ? ` · Packing: ${r.packer}` : ''}</div>
+          {r.packed_at
+            ? <div className="okbox">Packing done · {fmtDateTime(r.packed_at)}</div>
+            : <div className="bar"><button className="primary bigbtn go" onClick={() => packDone(r)}>Packing done</button><span className="muted">Reminders every {n(r.remind_hours)} h until you tap this</span></div>}
           <div className="bar"><HandOverButton me={me} kind="packing" id={r.inquiry_id} currentId={r.packer_id} title={`Packing no. ${r.packing_no} · ${r.customer}`} /></div>
         </div>) })}
 

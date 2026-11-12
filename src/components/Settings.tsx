@@ -8,7 +8,7 @@ import Catalogue from './Catalogue'
 import ExcelCard from './ExcelCard'
 import { IndiaMartIntake } from './IndiaMart'
 import { CustomerAppContacts, CustomerAppProblems } from './CustomerApp'
-import { PaymentRules, ClockRules, OfficeNetwork, StaffRules, KitContents, SoldTogether, LockMortis } from './SettingsExtra'
+import { PackReminderRule, PaymentRules, ClockRules, OfficeNetwork, StaffRules, KitContents, SoldTogether, LockMortis } from './SettingsExtra'
 
 type Row = { orig?: string; name: string }
 function ListEditor({ title, hint, fixedStart = [], fixedEnd = [], values, onSave }: { title: string; hint?: string; fixedStart?: string[]; fixedEnd?: string[]; values: string[]; onSave: (items: Row[], removed: string[]) => Promise<string | null> }) {
@@ -122,6 +122,7 @@ export default function Settings({ me }: { me: any }) {
         <h3>Company settings (admin only)</h3>
         <Catalogue categoryEditor={<ListEditor title="Categories" hint="Add, rename, reorder (drag) or remove categories. Renaming moves its products along. A category can be removed only when it has no products." values={s.categories} onSave={saveCats} />} />
         <PaymentRules me={me} />
+        <PackReminderRule me={me} />
         <CustomerAppContacts />
         <CustomerAppProblems />
         <StaffRules me={me} />
