@@ -45,14 +45,14 @@ export default function ConfirmOrder({ inquiry, onConfirm, onClose }: { inquiry:
     <div className="modal"><div className="card">
       <h3 style={{ margin: 0 }}>Confirm this order</h3>
       <WhoFor inquiry={inquiry} />
-      <p style={{ margin: 0 }}>Which products are being sold? These pieces will be <b>locked</b> for this customer so nobody else sells them.</p>
+      <p style={{ margin: 0 }}>Which products are being sold? These pieces will be <b>blocked</b> for this customer so nobody else sells them.</p>
       {items.isLoading && <p className="empty">Loading…</p>}
-      {items.data && !items.data.length && <p className="muted">This inquiry has no product lines, so no stock will be locked.</p>}
+      {items.data && !items.data.length && <p className="muted">This inquiry has no product lines, so no stock will be blocked.</p>}
       {items.data?.map((i) => { const v = val(i), q = Number(i.quantity ?? 0); return (
         <div key={i.id} style={{ display: 'grid', gap: 4 }}>
           <b>{i.product_name_snapshot} × {i.quantity ?? '?'}</b>
           <select value={v} onChange={(e) => setPick({ ...pick, [i.id]: e.target.value })}>
-            <option value="">Not a stock item (no stock locked)</option>
+            <option value="">Not a stock item (no stock blocked)</option>
             {prods.data?.map((p) => <option key={p.id} value={p.id}>{p.product_name}{p.product_code ? ` (${p.product_code})` : ''}</option>)}
           </select>
           {v && hasStock && q > free(v) && <div className="warnbox">Only {free(v)} free in store for this product. You can still confirm; the stock team will see the shortage.</div>}

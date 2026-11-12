@@ -31,7 +31,7 @@ export async function exportAll(me: any): Promise<string> {
       'Payment': f?.pay_status ?? 'Not paid', 'Payment later': f?.pay_later ? 'Yes' : '', 'Payment promised by': fmtDate(f?.balance_due_on), 'Dispatched': r.dispatched_at ? 'Yes' : 'No' } })])
   if (me.role === 'admin') { // the owner only
     const st = await supabase.rpc('stock_overview'); if (st.error) throw st.error
-    sheets.push(['Products and stock', (st.data as any[]).map((s) => ({ 'Product': s.product_name, 'Code': s.product_code ?? '', 'Category': s.product_category, 'Unit': s.unit, 'In store': Number(s.in_store), 'Locked for orders': Number(s.locked), 'Free': Number(s.free), 'Low-stock alert at': Number(s.low_stock_level) }))])
+    sheets.push(['Products and stock', (st.data as any[]).map((s) => ({ 'Product': s.product_name, 'Code': s.product_code ?? '', 'Category': s.product_category, 'Unit': s.unit, 'In store': Number(s.in_store), 'Blocked for orders': Number(s.locked), 'Free': Number(s.free), 'Low-stock alert at': Number(s.low_stock_level) }))])
   }
   const wb = XLSX.utils.book_new()
   for (const [name, rows] of sheets) {

@@ -16,6 +16,12 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
   const techs = useQuery({ queryKey: ['employees', 'service'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).eq('role', 'service').order('employee_name')).data ?? [] })
   const settings = useSettings(), [rem2, setRem2] = useState<string | null>(null)
   async function saveRemind() { const h = Number(rem2 ?? pk.data?.pack_remind_hours ?? settings.packReminderHours); const { error } = await supabase.rpc('set_pack_reminder', { p_inq: inquiry.id, p_hours: h }); setMsg(error ? error.message : 'Reminder gap saved.'); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
+  async function cancelPacking() {
+    if (!confirm('Cancel packing for this order? Anything marked ready (not yet dispatched) is taken back, the packer is told to stop, and reminders end.')) return
+    const why = prompt('What was the mistake? (optional, the packer will see it)', '')
+    if (why === null) return
+    const { error } = await supabase.rpc('cancel_packing', { p_inq: inquiry.id, p_reason: why }); setMsg(error ? error.message : 'Packing cancelled. You can assign it again when ready.'); refresh()
+  }
   async function setPacker(id: string) { const { error } = await supabase.rpc('assign_packer', { p_inq: inquiry.id, p_emp: id || null }); setMsg(error ? error.message : ''); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
   const refresh = () => { qc.invalidateQueries({ queryKey: ['dispatch'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['inventory'] }) }
   const rem = (bal.data ?? []).filter((b) => Number(b.remaining) > 0)
@@ -47,6 +53,7 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
       {canAct && pk.data?.packer_id && (pk.data.packed_at
         ? <div className="okbox">Packing done · {fmtDateTime(pk.data.packed_at)}</div>
         : <div className="bar"><label style={{ flex: 1 }}>Remind every (hours, until packing is done)<input type="number" min="0.5" max="72" step="0.5" value={rem2 ?? String(pk.data.pack_remind_hours ?? settings.packReminderHours)} onChange={(e) => setRem2(e.target.value)} /></label><button onClick={saveRemind}>Save</button></div>)}
+      {canAct && (pk.data?.packer_id || (parts.data ?? []).some((p: any) => p.status === 'ready')) && <div><button className="link" style={{ color: '#9b3b30' }} onClick={cancelPacking}>Cancel packing (made a mistake)</button></div>}
       {msg && <p className="msg">{msg}</p>}
       {bal.isLoading && <p className="empty">Loading…</p>}
       {bal.data && !bal.data.length && <p className="warnbox">This order has no catalogue products, so nothing can be dispatched from here. Use "Edit items" (admin) to add them.</p>}

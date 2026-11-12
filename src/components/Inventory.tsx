@@ -67,12 +67,12 @@ export default function Inventory({ me }: { me: any }) {
       <h3>In store</h3>
       {stock.isLoading && <p className="empty">Loading…</p>}
       {stock.data && !stock.data.length && <p className="empty">No products yet.{isAdmin ? ' Add them in Settings → Product catalogue.' : ' Ask the admin to add products.'}</p>}
-      {stock.data?.map((p: any) => { const low = Number(p.low_stock_level) > 0 && Number(p.in_store) <= Number(p.low_stock_level), open = openId === p.product_id
+      {stock.data?.map((p: any) => { const see = isAdmin || canEdit /* only the admin and the stock keeper see the stock numbers */, low = see && Number(p.low_stock_level) > 0 && Number(p.in_store) <= Number(p.low_stock_level), open = openId === p.product_id
         return (
         <div className="card tap" key={p.product_id} style={{ borderLeftColor: low ? '#9b3b30' : '#6B8F72' }} onClick={() => setOpenId(open ? '' : p.product_id)}>
           <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <div style={{ minWidth: 0 }}><b>{p.product_name}</b><div className="muted">{n(p.in_store)} in store · {n(p.locked)} locked{p.product_code ? ` · ${p.product_code}` : ''}</div>{low && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: reorder soon</div>}</div>
-            <div className="bignum" style={low ? { color: '#9b3b30' } : {}}>{n(p.free)}<small>free</small></div></div>
+            <div style={{ minWidth: 0 }}><b>{p.product_name}</b><div className="muted">{see ? `${n(p.in_store)} in store · ` : ''}{n(p.locked)} blocked{p.product_code ? ` · ${p.product_code}` : ''}</div>{low && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: reorder soon</div>}</div>
+            {see ? <div className="bignum" style={low ? { color: '#9b3b30' } : {}}>{n(p.free)}<small>free</small></div> : <div className="bignum">{n(p.locked)}<small>blocked</small></div>}</div>
           {open && canEdit && <div className="bar" onClick={(e) => e.stopPropagation()}><button onClick={() => setFix({ product: p })}>Fix total count</button></div>}
         </div>) })}
 
