@@ -1,106 +1,47 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { inr } from '../lib/money'
-import { useSettings } from '../lib/settings'
 import { fmtDate, isoDate } from '../lib/dates'
 import DateField from './DateField'
 import WhoFor from './WhoFor'
-const r2 = (n: number) => Math.round(n * 100) / 100
-// Order value (filled from the latest quotation), GST, courier, and the payments received for one order.
-export default function Payments({ me, inquiry, onClose }: { me: any; inquiry: any; onClose: () => void }) {
-  const qc = useQueryClient(), isAdmin = me.role === 'admin', { gstRate } = useSettings()
-  const key = ['money', inquiry.id]
-  const { data, isLoading } = useQuery({ queryKey: key, queryFn: async () => {
-    const f = await supabase.from('order_finance').select('order_value,balance_due_on,base_value,gst_mode,gst_rate,gst_amount,courier_charges,courier_gst,settled_amount,settled_note').eq('inquiry_id', inquiry.id).maybeSingle(); if (f.error) throw f.error
-    const p = await supabase.from('payments').select('id,amount,paid_on,note,created_at,employees:created_by(employee_name)').eq('inquiry_id', inquiry.id).order('paid_on', { ascending: false }).order('created_at', { ascending: false }); if (p.error) throw p.error
-    const q = await supabase.from('quotations').select('quotation_number,version,total_amount,freight_charges,freight_gst,gst_mode,gst_rate').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false }).limit(1); if (q.error) throw q.error
-    return { fin: f.data, pays: p.data as any[], quote: (q.data?.[0] ?? null) as any } } })
-  const [base, setBase] = useState<string | null>(null), [mode, setMode] = useState<'plus' | 'inclusive' | null>(null), [courier, setCourier] = useState<string | null>(null), [due, setDue] = useState<string | null>(null), [cg, setCg] = useState<boolean | null>(null)
-  const [amt, setAmt] = useState(''), [on, setOn] = useState(isoDate()), [note, setNote] = useState('')
-  const [err, setErr] = useState(''), [busy, setBusy] = useState(false)
-  const refresh = () => { qc.invalidateQueries({ queryKey: ['money'] }); qc.invalidateQueries({ queryKey: ['inventory'] }) }
-  const fin = data?.fin
-  const legacy = !!fin && fin.base_value == null // entered before GST existed: treat as the final total
-  const baseStr = base ?? (fin ? String(Number(fin.base_value ?? fin.order_value)) : data?.quote ? String(Number(data.quote.total_amount)) : '')
-  const m = mode ?? (fin ? ((fin.gst_mode as any) ?? 'inclusive') : ((data?.quote?.gst_mode as any) ?? 'plus'))
-  const courierStr = courier ?? (fin ? String(Number(fin.courier_charges ?? 0) || '') : data?.quote ? String(Number(data.quote.freight_charges ?? 0) || '') : '')
-  const rate = fin?.gst_rate != null && base === null && mode === null ? Number(fin.gst_rate) : !fin && data?.quote?.gst_rate != null ? Number(data.quote.gst_rate) : gstRate
-  const B = Number(baseStr) || 0, C = Number(courierStr) || 0
-  // GST on courier: follows the quotation; an order saved before this option existed keeps its courier without GST.
-  const fc = Number(fin?.courier_charges ?? 0)
-  const cgDefault = fin ? (fc > 0 ? (fin.courier_gst == null ? false : Number(fin.courier_gst) > 0) : true) : data?.quote ? (Number(data.quote.freight_charges) > 0 ? Number(data.quote.freight_gst) > 0 : true) : true
-  const cgOn = cg ?? cgDefault
-  const CG = C > 0 && cgOn ? (m === 'plus' ? r2((C * rate) / 100) : r2(C - C / (1 + rate / 100))) : 0
-  const gst = legacy && base === null && mode === null ? 0 : m === 'plus' ? r2((B * rate) / 100) : r2(B - B / (1 + rate / 100))
-  const total = m === 'plus' ? r2(B + gst + C + CG) : r2(B + C)
-  const value = Number(fin?.order_value ?? 0), paid = (data?.pays ?? []).reduce((n, p) => n + Number(p.amount), 0), settled = Number(fin?.settled_amount ?? 0), balance = value - paid - settled < 0.999 ? 0 : value - paid - settled
-  const full = value > 0 && balance < 0.999, pct = full ? 100 : value > 0 ? Math.min(100, Math.round(((paid + settled) / value) * 100)) : 0
-  async function saveValue() {
-    if (!(B > 0)) return setErr('Enter the order value.')
+export const PAY_STATES = ['Not paid', 'Part paid', 'Paid in full'] as const
+// Payment for one order: only a state (Not paid / Part paid / Paid in full), an optional promised date, and "payment later". No amounts are recorded.
+export default function Payments({ me: _me, inquiry, onClose }: { me: any; inquiry: any; onClose: () => void }) {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['money', inquiry.id], queryFn: async () => {
+    const { data, error } = await supabase.from('order_finance').select('pay_status,balance_due_on,pay_later').eq('inquiry_id', inquiry.id).maybeSingle(); if (error) throw error
+    return (data ?? { pay_status: 'Not paid', balance_due_on: null, pay_later: false }) as { pay_status: string; balance_due_on: string | null; pay_later: boolean } } })
+  const [due, setDue] = useState<string | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['money'] }); qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
+  const status = data?.pay_status ?? 'Not paid', dueStr = due ?? data?.balance_due_on ?? ''
+  async function setStatus(s: string) {
     setErr(''); setBusy(true)
-    const { error } = await supabase.from('order_finance').upsert({ inquiry_id: inquiry.id, order_value: total, base_value: B, gst_mode: m, gst_rate: rate, gst_amount: gst, courier_charges: C, courier_gst: CG, balance_due_on: (due ?? fin?.balance_due_on) || null, updated_by: me.id }, { onConflict: 'inquiry_id' })
-    setBusy(false); if (error) return setErr(error.message); setBase(null); setMode(null); setCourier(null); setCg(null); setDue(null); refresh()
+    const { error } = await supabase.rpc('set_payment_status', { p_inq: inquiry.id, p_status: s, p_due: s === 'Paid in full' ? null : dueStr || null })
+    setBusy(false); if (error) return setErr(error.message); setDue(null); refresh()
   }
-  async function addPayment() {
-    const a = Number(amt); if (!(a > 0)) return setErr('Enter the amount received.')
-    if (!fin) return setErr('Save the order value first.')
-    if (a > balance + 0.001) return setErr(`That is more than the balance (${inr(balance)}). Check the amount.`)
-    if (!on) return setErr('Enter the date received.')
+  async function payLater(on: boolean) {
     setErr(''); setBusy(true)
-    const { error } = await supabase.from('payments').insert({ inquiry_id: inquiry.id, amount: a, paid_on: on, note: note || null, created_by: me.id })
-    setBusy(false); if (error) return setErr(error.message); setAmt(''); setNote(''); refresh()
+    const { error } = await supabase.rpc('set_pay_later', { p_inq: inquiry.id, p_on: on, p_due: on && dueStr ? dueStr : null })
+    setBusy(false); if (error) setErr(error.message); else setDue(null); refresh()
   }
-  async function settle() {
-    const n = prompt(`Mark this order as fully paid? The remaining ${inr(balance)} will be written off.\n\nReason (for example: discount agreed):`); if (n === null) return
-    setErr(''); const { error } = await supabase.rpc('settle_balance', { p_inq: inquiry.id, p_note: n }); if (error) setErr(error.message); refresh()
-  }
-  async function unsettle() { if (!confirm('Bring the written-off balance back?')) return; setErr(''); const { error } = await supabase.rpc('unsettle_balance', { p_inq: inquiry.id }); if (error) setErr(error.message); refresh() }
-  async function del(id: string) { if (!confirm('Delete this payment entry?')) return; const { error } = await supabase.from('payments').delete().eq('id', id); if (error) setErr(error.message); refresh() }
+  const overdue = status !== 'Paid in full' && !!data?.balance_due_on && data.balance_due_on < isoDate()
   return (
     <div className="modal"><div className="card">
-      <div className="row"><h3 style={{ margin: 0 }}>Payments</h3><button className="link" onClick={onClose}>Close</button></div>
+      <div className="row"><h3 style={{ margin: 0 }}>Payment</h3><button className="link" onClick={onClose}>Close</button></div>
       <WhoFor inquiry={inquiry} />
       {isLoading && <p className="muted">Loading…</p>}
       {data && <>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div className="row"><span className="muted">Total to receive</span><b>{fin ? inr(value) : 'Not entered'}</b></div>
-          <div className="row"><span className="muted">Received</span><b>{inr(paid)}</b></div>
-          <div className={`paybar${full ? ' full' : ''}`}><i style={{ width: `${pct}%` }} /></div>
-          {settled > 0 && <div className="row"><span className="muted">Written off{fin?.settled_note ? ` (${fin.settled_note})` : ''}</span><b>{inr(settled)}</b></div>}
-          <div className="row"><span className="muted">Balance{fin?.balance_due_on ? ` · due ${fmtDate(fin.balance_due_on)}` : ''}</span><b>{inr(balance)}</b></div>
-          {full && <span className="pill" style={{ justifySelf: 'start' }}>Paid in full</span>}
-          {isAdmin && fin && balance > 0 && <button type="button" onClick={settle}>Mark as fully paid (write off {inr(balance)})</button>}
-          {isAdmin && settled > 0 && <button type="button" className="link" style={{ justifySelf: 'start' }} onClick={unsettle}>Undo write-off</button>}
-          {balance > 0 && fin?.balance_due_on && fin.balance_due_on < isoDate() && <span className="pill Urgent" style={{ justifySelf: 'start' }}>Balance overdue</span>}
-        </div>
-        <h4 style={{ margin: '6px 0 0' }}>Order value</h4>
-        {!fin && data.quote && base === null && <div className="muted">Filled from the latest quotation ({data.quote.quotation_number}, v{data.quote.version}). You can change it.</div>}
-        {legacy && <div className="muted">This value was entered before GST was added, so it is treated as the final total. Change it below if needed.</div>}
-        <label>Order value (₹){m === 'inclusive' ? ', GST included' : ', before GST'}<input type="number" min="0" step="any" value={baseStr} onChange={(e) => setBase(e.target.value)} /></label>
-        <div className="bar">
-          <button type="button" className={m === 'plus' ? 'primary' : ''} onClick={() => setMode('plus')}>+ GST ({rate}%)</button>
-          <button type="button" className={m === 'inclusive' ? 'primary' : ''} onClick={() => setMode('inclusive')}>Inclusive of GST</button></div>
-        <label>Freight / courier charges (₹, paid by the buyer, optional)<input type="number" min="0" step="any" value={courierStr} onChange={(e) => setCourier(e.target.value)} /></label>
-        {C > 0 && <label style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row', color: 'inherit', fontSize: 14 }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={cgOn} onChange={(e) => setCg(e.target.checked)} />Charge GST on courier too ({rate}%{m === 'inclusive' ? ', already inside the courier amount' : ', added'})</label>}
-        <label>Balance due on<DateField value={due ?? fin?.balance_due_on ?? ''} onChange={setDue} ariaLabel="Balance due date" /></label>
-        {B > 0 && <div className="warnbox" style={{ display: 'grid', gap: 3 }}>
-          <div className="row"><span>Order value{m === 'inclusive' ? ' (GST included)' : ''}</span><span>{inr(B)}</span></div>
-          <div className="row"><span>{m === 'plus' ? `GST ${rate}% (added)` : `GST ${rate}% (already inside the value)`}</span><span>{m === 'plus' ? '+ ' : ''}{inr(gst)}</span></div>
-          {C > 0 && <div className="row"><span>Courier charges{m === 'inclusive' && CG > 0 ? ' (GST included)' : ' (added)'}</span><span>+ {inr(C)}</span></div>}
-          {CG > 0 && <div className="row"><span>{m === 'plus' ? `GST ${rate}% on courier (added)` : `GST ${rate}% on courier (already inside)`}</span><span>{m === 'plus' ? '+ ' : ''}{inr(CG)}</span></div>}
-          <div className="row"><b>Total to receive</b><b>{inr(total)}</b></div></div>}
-        <button disabled={busy} onClick={saveValue}>Save order value</button>
-        <h4 style={{ margin: '6px 0 0' }}>Record a payment</h4>
-        <label>Amount received (₹)<input type="number" min="0" step="any" value={amt} onChange={(e) => setAmt(e.target.value)} /></label>
-        <label>Date received<DateField value={on} onChange={setOn} ariaLabel="Date received" /></label>
-        <input placeholder="Note, e.g. advance / UPI / cheque no. (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-        <button className="primary" disabled={busy} onClick={addPayment}>Record payment</button>
+        <div className="row"><span className="muted">Payment</span><span className="pill" style={status === 'Paid in full' ? undefined : { background: '#f0e3c8' }}>{status}</span></div>
+        <div className={`paybar${status === 'Paid in full' ? ' full' : ''}`}><i style={{ width: status === 'Paid in full' ? '100%' : status === 'Part paid' ? '50%' : '0%' }} /></div>
+        {overdue && <span className="pill Urgent" style={{ justifySelf: 'start' }}>Payment overdue</span>}
+        <h4 style={{ margin: '6px 0 0' }}>Mark payment as</h4>
+        <div className="bar">{PAY_STATES.map((s) => <button key={s} type="button" disabled={busy} className={status === s ? 'primary' : ''} onClick={() => setStatus(s)}>{s}</button>)}</div>
+        {status !== 'Paid in full' && <label>Payment promised by (optional)<DateField value={dueStr} onChange={setDue} ariaLabel="Payment promised by" /></label>}
+        {status !== 'Paid in full' && (data.pay_later
+          ? <div className="warnbox" style={{ display: 'grid', gap: 6 }}><b>Payment later</b><span className="muted">This order can go through packing and dispatch before the payment comes in{data.balance_due_on ? ` (promised by ${fmtDate(data.balance_due_on)})` : ''}.</span><button type="button" disabled={busy} onClick={() => payLater(false)}>Cancel "payment later"</button></div>
+          : <div className="card" style={{ display: 'grid', gap: 6 }}><b>Payment later</b><span className="muted">Let this order go to packing and dispatch without waiting for the payment.</span>
+              <button type="button" disabled={busy} onClick={() => payLater(true)}>Allow packing and dispatch, payment later</button></div>)}
         {err && <p className="msg">{err}</p>}
-        {data.pays.length > 0 && <><h4 style={{ margin: '6px 0 0' }}>Received so far</h4>
-          {data.pays.map((p: any) => <div key={p.id} className="row" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-            <div><b>{inr(p.amount)}</b> <span className="muted">· {fmtDate(p.paid_on)}</span><div className="muted">{(Array.isArray(p.employees) ? p.employees[0] : p.employees)?.employee_name ?? ''}{p.note ? ` · ${p.note}` : ''}</div></div>
-            {isAdmin && <button className="link" onClick={() => del(p.id)}>Delete</button>}</div>)}</>}
       </>}
     </div></div>
   )

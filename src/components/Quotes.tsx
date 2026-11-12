@@ -1,17 +1,16 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { inr } from '../lib/money'
 import { QSTATUS, qclass, one } from '../lib/quotes'
 import QuoteForm from './QuoteForm'
 import WhoFor from './WhoFor'
 import { fmtDate as fmt } from '../lib/dates'
-// Quotations recorded for one inquiry, with a button to record a new or revised one.
+// Quotations recorded for one inquiry (quotation number, items and status; no amounts), with a button to record a new or revised one.
 export default function Quotes({ me, inquiry, onClose }: { me: any; inquiry: any; onClose: () => void }) {
   const qc = useQueryClient(), canWrite = me.role === 'admin' || me.role === 'sales', isAdmin = me.role === 'admin'
-  const [adding, setAdding] = useState(false), [msg, setMsg] = useState('')
+  const [adding, setAdding] = useState(false), [revising, setRevising] = useState<any>(null), [msg, setMsg] = useState('')
   const list = useQuery({ queryKey: ['quotes', inquiry.id], queryFn: async () => {
-    const { data, error } = await supabase.from('quotations').select('id,quotation_number,version,quotation_date,total_amount,installation_charges,freight_charges,freight_gst,gst_mode,gst_rate,gst_amount,status,created_at,creator:created_by(employee_name),quotation_lines(id,product_name,quantity,unit,unit_price,line_total)').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('quotations').select('id,quotation_number,version,quotation_date,status,created_at,creator:created_by(employee_name),quotation_lines(id,product_id,product_name,quantity,unit)').eq('inquiry_id', inquiry.id).order('created_at', { ascending: false })
     if (error) throw error; return data as any[] } })
   const refresh = () => { qc.invalidateQueries({ queryKey: ['quotes'] }); qc.invalidateQueries({ queryKey: ['quote-library'] }) }
   async function setSt(q: any, s: string) { const { error } = await supabase.from('quotations').update({ status: s }).eq('id', q.id); setMsg(error ? error.message : ''); refresh() }
@@ -30,15 +29,11 @@ export default function Quotes({ me, inquiry, onClose }: { me: any; inquiry: any
       {list.data?.map((q) => <div className="card" key={q.id} style={{ margin: 0 }}>
         <div className="row"><b>{q.quotation_number} <span className="muted">v{q.version}</span></b><span className={`pill ${qclass(q.status)}`}>{q.status}</span></div>
         <div className="muted">{fmt(q.quotation_date)} · by {one(q.creator)?.employee_name ?? '—'}</div>
-        {(q.quotation_lines ?? []).map((l: any) => <div className="row" key={l.id}><span>{Number(l.quantity)}{l.unit ? ` ${l.unit}` : ''} × {l.product_name}</span><span className="muted">{inr(l.unit_price)} each · <b>{inr(l.line_total)}</b></span></div>)}
-        {Number(q.installation_charges) > 0 && <div className="row"><span>Installation charges</span><span className="muted">{inr(q.installation_charges)}</span></div>}
-        {Number(q.gst_amount) > 0 && <div className="row"><span>GST {Number(q.gst_rate)}% {q.gst_mode === 'plus' ? '(added)' : '(included)'}</span><span className="muted">{q.gst_mode === 'plus' ? '+ ' : ''}{inr(q.gst_amount)}</span></div>}
-        <div className="row"><b>{q.gst_mode === 'plus' && Number(q.gst_amount) > 0 ? 'Total (before GST)' : 'Total'}</b><b>{inr(q.total_amount)}</b></div>
-        {Number(q.freight_charges) > 0 && <div className="row"><span>Freight charges (extra)</span><span className="muted">{inr(q.freight_charges)}</span></div>}
-        {Number(q.freight_gst) > 0 && <div className="row"><span>GST on freight {Number(q.gst_rate)}% {q.gst_mode === 'plus' ? '(added)' : '(included)'}</span><span className="muted">{q.gst_mode === 'plus' ? '+ ' : ''}{inr(q.freight_gst)}</span></div>}
-        {canWrite && <div className="bar">{QSTATUS.filter((s) => s !== q.status && s !== 'Revised').map((s) => <button key={s} onClick={() => setSt(q, s)}>Mark {s}</button>)}{isAdmin && <button className="link" onClick={() => remove(q)}>Delete</button>}</div>}
+        {(q.quotation_lines ?? []).map((l: any) => <div className="row" key={l.id}><span>{Number(l.quantity)}{l.unit ? ` ${l.unit}` : ''} × {l.product_name}</span></div>)}
+        {canWrite && <div className="bar">{q.status !== 'Revised' && <button onClick={() => setRevising(q)}>Revise quantities</button>}{QSTATUS.filter((s) => s !== q.status && s !== 'Revised').map((s) => <button key={s} onClick={() => setSt(q, s)}>Mark {s}</button>)}{isAdmin && <button className="link" onClick={() => remove(q)}>Delete</button>}</div>}
       </div>)}
       {adding && <QuoteForm inquiry={inquiry} onClose={() => setAdding(false)} />}
+      {revising && <QuoteForm inquiry={inquiry} reviseFrom={revising} onClose={() => setRevising(null)} />}
     </div></div>
   )
 }

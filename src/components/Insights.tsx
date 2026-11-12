@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { inr } from '../lib/money'
 const iso = (d: number) => new Date(Date.now() - d * 86400000).toISOString()
 import { fmtDate as fmt } from '../lib/dates'
 const cnt = async (q: any) => { const { count, error } = await q; if (error) throw error; return count ?? 0 }
@@ -16,8 +15,8 @@ export default function Insights() {
       cnt(supabase.from('installations').select('id', { count: 'exact', head: true }).gte('created_at', s)),
       cnt(supabase.from('service_tickets').select('id', { count: 'exact', head: true }).gte('opened_at', s)),
       cnt(supabase.from('service_tickets').select('id', { count: 'exact', head: true }).gte('closed_at', s))])
-    const p = await supabase.from('payments').select('amount').gte('created_at', s); if (p.error) throw p.error
-    return { fresh, won, lost, sent, inst, opened, fixed, money: (p.data as any[]).reduce((a, x) => a + Number(x.amount), 0) } } })
+    const paid = await cnt(supabase.from('order_finance').select('inquiry_id', { count: 'exact', head: true }).eq('pay_status', 'Paid in full').gte('pay_status_at', s))
+    return { fresh, won, lost, sent, inst, opened, fixed, paid } } })
   const warr = useQuery({ queryKey: ['insights', 'warranty'], queryFn: async () => {
     const t = new Date().toISOString().slice(0, 10), e = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)
     const { data, error } = await supabase.from('installations').select('id,site_name,what,warranty_until').gte('warranty_until', t).lte('warranty_until', e).order('warranty_until'); if (error) throw error; return data as any[] } })
@@ -38,7 +37,7 @@ export default function Insights() {
       <h3>This week (last 7 days)</h3>
       {week.isLoading && <p className="empty">Loading…</p>}
       {w && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10 }}>
-        {Stat(w.fresh, 'New inquiries')}{Stat(w.won, 'Orders confirmed')}{Stat(w.lost, 'Lost')}{Stat(inr(w.money), 'Money received')}{Stat(w.sent, 'Dispatched')}{Stat(w.inst, 'Installations')}{Stat(w.opened, 'Tickets opened')}{Stat(w.fixed, 'Tickets fixed')}</div>}
+        {Stat(w.fresh, 'New inquiries')}{Stat(w.won, 'Orders confirmed')}{Stat(w.lost, 'Lost')}{Stat(w.paid, 'Orders paid in full')}{Stat(w.sent, 'Dispatched')}{Stat(w.inst, 'Installations')}{Stat(w.opened, 'Tickets opened')}{Stat(w.fixed, 'Tickets fixed')}</div>}
       <p className="muted">"Confirmed" and "Lost" count inquiries that reached that stage in the week and haven't been edited since.</p>
       <h3>Warranty ending in 60 days</h3>
       {warr.data && !warr.data.length && <p className="empty">None.</p>}

@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { inr } from '../lib/money'
 import { useSettings, Tile } from '../lib/settings'
 import LowStock from './LowStock'
 import InquiryBar, { useMoney } from './Progress'
@@ -14,16 +13,14 @@ export default function Dashboard({ me }: { me?: any }) {
     const { data, error } = await supabase.from('inquiries').select('sales_stage,created_at,updated_at,lost_reason').is('archived_at', null); if (error) throw error; return data } })
   const fu = useQuery({ queryKey: ['followups', 'dash'], queryFn: async () => {
     const { data, error } = await supabase.from('followups').select('scheduled_at').eq('status', 'Pending'); if (error) throw error; return data } })
-  // Money still to collect on confirmed orders (admin only)
+  // Confirmed orders that are not paid in full yet (admin only). Words only: no amounts.
   const isAdmin = me?.role === 'admin'
   const pend = useQuery({ queryKey: ['money', 'pending'], enabled: isAdmin, queryFn: async () => {
     const o = await supabase.from('inquiries').select('id,inquiry_number,customers(customer_name)').eq('sales_stage', 'Order Confirmed').is('archived_at', null); if (o.error) throw o.error
-    const f = await supabase.from('order_finance').select('inquiry_id,order_value,balance_due_on'); if (f.error) throw f.error
-    const p = await supabase.from('payments').select('inquiry_id,amount'); if (p.error) throw p.error
-    const paid: Record<string, number> = {}; for (const x of p.data as any[]) paid[x.inquiry_id] = (paid[x.inquiry_id] ?? 0) + Number(x.amount)
+    const f = await supabase.from('order_finance').select('inquiry_id,pay_status,balance_due_on,pay_later'); if (f.error) throw f.error
     const fin: Record<string, any> = {}; for (const x of f.data as any[]) fin[x.inquiry_id] = x
-    return (o.data as any[]).map((r) => ({ r, value: fin[r.id] ? Number(fin[r.id].order_value) : null, due: fin[r.id]?.balance_due_on as string | null, paid: paid[r.id] ?? 0 }))
-      .filter((x) => x.value === null || x.value - x.paid > 0.001).sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999')) } })
+    return (o.data as any[]).map((r) => ({ r, status: (fin[r.id]?.pay_status as string) ?? 'Not paid', due: fin[r.id]?.balance_due_on as string | null, later: fin[r.id]?.pay_later === true }))
+      .filter((x) => x.status !== 'Paid in full').sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999')) } })
   if (inq.error || fu.error) return <p className="msg">{((inq.error || fu.error) as any).message}</p>
   if (!inq.data || !fu.data) return <p className="empty">Loading…</p>
   const now = Date.now(), t0 = new Date().setHours(0, 0, 0, 0), t1 = new Date().setHours(23, 59, 59, 999), m = new Date()
@@ -45,13 +42,13 @@ export default function Dashboard({ me }: { me?: any }) {
   return <>
     <LowStock detail={isAdmin || !!canInv.data} />
     <div className="stats">{cards.map(([k, v]) => <div className="stat" key={k}><b>{v}</b><span className="muted">{k}</span></div>)}</div>
-    {isAdmin && pend.data && pend.data.length > 0 && (() => { const today = isoDate(), total = pend.data.reduce((n, x) => n + (x.value != null ? x.value - x.paid : 0), 0)
-      return <div className="card" style={{ borderLeftColor: '#8A6F52' }}><div className="row"><b>Money to collect</b><b>{inr(total)}</b></div>
-        <div className="muted">Confirmed orders that are not fully paid.</div>
-        {pend.data.slice(0, 10).map(({ r, value, due, paid }) => <div className="row" key={r.id}><div><div>{r.customers?.customer_name} <span className="muted">· {r.inquiry_number}</span></div>
-          <div className="muted">{value == null ? 'Order value not entered' : `Received ${inr(paid)} of ${inr(value)}`}{due ? ` · due ${fmtDate(due)}` : ''}</div>
+    {isAdmin && pend.data && pend.data.length > 0 && (() => { const today = isoDate()
+      return <div className="card" style={{ borderLeftColor: '#8A6F52' }}><div className="row"><b>Payment pending</b><b>{pend.data.length}</b></div>
+        <div className="muted">Confirmed orders that are not paid in full.</div>
+        {pend.data.slice(0, 10).map(({ r, status, due, later }) => <div className="row" key={r.id}><div><div>{r.customers?.customer_name} <span className="muted">· {r.inquiry_number}</span></div>
+          <div className="muted">{status}{later ? ' · payment later' : ''}{due ? ` · due ${fmtDate(due)}` : ''}</div>
           <InquiryBar r={{ id: r.id, sales_stage: 'Order Confirmed' }} stages={stages} money={money.data} /></div>
-          <div style={{ textAlign: 'right' }}>{value != null && <b>{inr(value - paid)}</b>}{due && due < today && <div><span className="pill Urgent">Overdue</span></div>}</div></div>)}
+          <div style={{ textAlign: 'right' }}>{due && due < today && <span className="pill Urgent">Overdue</span>}</div></div>)}
         {pend.data.length > 10 && <div className="muted">…and {pend.data.length - 10} more.</div>}</div> })()}
     {latest.data && latest.data.length > 0 && <div className="card"><b>Latest inquiries</b>
       {latest.data.map((r) => <div key={r.id} style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}><div className="row"><span>{r.customers?.customer_name} <span className="muted">· {r.inquiry_number}</span></span><span className="muted">{r.customers?.phone_number ?? ''}</span></div>

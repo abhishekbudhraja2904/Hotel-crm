@@ -4,17 +4,13 @@ import { supabase } from '../lib/supabase'
 import { useSettings, saveSetting } from '../lib/settings'
 // Admin-only settings cards: GST and payment rule, auto clock-out, office network, and per-person rules.
 export function PaymentRules({ me }: { me: any }) {
-  const qc = useQueryClient(), s = useSettings(), [gst, setGst] = useState(String(s.gstRate)), [req, setReq] = useState(s.requireFullPayment), [msg, setMsg] = useState('')
-  useEffect(() => { setGst(String(s.gstRate)); setReq(s.requireFullPayment) }, [s.gstRate, s.requireFullPayment])
-  async function save() {
-    const g = Number(gst); if (!(g >= 0 && g <= 100)) return setMsg('Enter the GST rate as a number between 0 and 100.')
-    const e = (await saveSetting('gstRate', g, me.id)) ?? (await saveSetting('requireFullPayment', req, me.id)); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] })
-  }
-  return <div className="card"><h3 style={{ margin: 0 }}>GST and payment rule</h3>
-    <label>GST rate (%) used in "Record a payment"<input type="number" min="0" max="100" step="any" value={gst} onChange={(e) => setGst(e.target.value)} /></label>
+  const qc = useQueryClient(), s = useSettings(), [req, setReq] = useState(s.requireFullPayment), [msg, setMsg] = useState('')
+  useEffect(() => { setReq(s.requireFullPayment) }, [s.requireFullPayment])
+  async function save() { const e = await saveSetting('requireFullPayment', req, me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] }) }
+  return <div className="card"><h3 style={{ margin: 0 }}>Payment rule</h3>
     <label style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row', color: 'inherit', fontSize: 14 }}>
-      <input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={req} onChange={(e) => setReq(e.target.checked)} />Allow dispatch only after the full payment is received</label>
-    <p className="muted" style={{ margin: 0 }}>{req ? 'Orders cannot be marked ready or dispatched until fully paid.' : 'For now an order can be dispatched before or after full payment.'}</p>
+      <input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={req} onChange={(e) => setReq(e.target.checked)} />Allow dispatch only after the payment is marked "Paid in full"</label>
+    <p className="muted" style={{ margin: 0 }}>{req ? 'Orders cannot be marked ready or dispatched until paid in full (or marked "payment later").' : 'For now an order can be dispatched before or after payment.'}</p>
     {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save</button></div>
 }
 const pad = (n: number) => String(n).padStart(2, '0')
