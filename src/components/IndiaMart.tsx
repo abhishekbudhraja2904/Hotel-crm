@@ -202,9 +202,11 @@ export function IndiaMartIntake({ me }: { me: any }) {
   const sec = useQuery({ queryKey: ['intake-secret'], queryFn: async () => (await supabase.rpc('intake_secret_for_admin')).data as string | null })
   const log = useQuery({ queryKey: ['intake-log'], refetchInterval: 30000, queryFn: async () => ((await supabase.rpc('intake_overview')).data ?? []) as any[] })
   const all = (s as any)
-  const raw = useQuery({ queryKey: ['intake-settings'], queryFn: async () => Object.fromEntries(((await supabase.from('org_settings').select('key,value').in('key', ['indiamartAssignee', 'indiamartPaused'])).data ?? []).map((r: any) => [r.key, r.value])) as Record<string, any> })
+  const raw = useQuery({ queryKey: ['intake-settings'], queryFn: async () => Object.fromEntries(((await supabase.from('org_settings').select('key,value').in('key', ['indiamartAssignee', 'indiamartPaused', 'indiamartMailbox'])).data ?? []).map((r: any) => [r.key, r.value])) as Record<string, any> })
   const assignee = raw.data?.indiamartAssignee ?? '', paused = raw.data?.indiamartPaused === true
   async function put(k: string, v: any) { const e = await saveSetting(k, v, me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['intake-settings'] }) }
+  const [mbox, setMbox] = useState<string | null>(null)
+  const mboxVal = mbox ?? raw.data?.indiamartMailbox ?? 'oforttleadsintake@gmail.com'
   async function copy() {
     const script = SCRIPT.replace('@@URL@@', () => String(import.meta.env.VITE_SUPABASE_URL).replace(/\s+/g, '')).replace('@@KEY@@', () => String(import.meta.env.VITE_SUPABASE_ANON_KEY).replace(/\s+/g, '')).replace('@@SECRET@@', () => (sec.data ?? '').replace(/\s+/g, '')).replace('@@PARSER@@', () => PARSER)
     try { await navigator.clipboard.writeText(script); setMsg('Script copied. Now paste it into Google Apps Script.') } catch { setMsg('Could not copy. Please try again.') }
@@ -221,6 +223,8 @@ export function IndiaMartIntake({ me }: { me: any }) {
     <label style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row', color: 'inherit', fontSize: 14 }}>
       <input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={paused} onChange={(e) => put('indiamartPaused', e.target.checked)} />Pause (stop creating inquiries from emails)</label>
     <button className="primary" onClick={copy} disabled={!sec.data}>Copy the Gmail script</button>
+    <label>Gmail address that receives the leads (for the "Original email" button)<input value={mboxVal} onChange={(e) => setMbox(e.target.value)} /></label>
+    <div className="bar"><button onClick={() => put('indiamartMailbox', mboxVal.trim())}>Save address</button></div>
     {msg && <p className="msg">{msg}</p>}
     {bad.length > 0 && <div className="warnbox"><b>Needs checking ({bad.length})</b>{bad.slice(0, 5).map((x: any) => <div key={x.id} className="muted">{new Date(x.at).toLocaleString()} · {x.error}</div>)}</div>}
     <div className="muted">Recent leads:</div>

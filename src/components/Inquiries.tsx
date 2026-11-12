@@ -29,7 +29,7 @@ export default function Inquiries({ me }: { me: any }) {
     queryKey: ['inquiries'],
     queryFn: async () => {
       const { data, error } = await supabase.from('inquiries')
-        .select('id,customer_id,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
+        .select('id,customer_id,inquiry_source,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
         .is('archived_at', null).order('created_at', { ascending: false }).limit(200)
       if (error) throw error
       return data
@@ -70,6 +70,16 @@ export default function Inquiries({ me }: { me: any }) {
     if (error) setMsg(error.message)
   }
 
+  // Opens the IndiaMART email that created this inquiry, in the company's leads Gmail.
+  async function openMail(r: any) {
+    setMsg('')
+    const [id, box] = await Promise.all([supabase.rpc('inquiry_source_mail', { p_inq: r.id }), supabase.from('org_settings').select('value').eq('key', 'indiamartMailbox').maybeSingle()])
+    if (id.error) return setMsg(id.error.message)
+    if (!id.data) return setMsg('No email is linked to this inquiry (it may have been added by hand).')
+    const mailbox = (box.data?.value as string) || 'oforttleadsintake@gmail.com'
+    window.open(`https://mail.google.com/mail/?authuser=${encodeURIComponent(mailbox)}#all/${id.data}`, '_blank')
+  }
+
   return (
     <section>
       <div className="bar">
@@ -93,7 +103,7 @@ export default function Inquiries({ me }: { me: any }) {
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
-            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setAppFor(r)}>Customer app</button>}{me.role !== 'service' && <button className="link" onClick={() => setQuoFor(r)}>Quotations</button>}{(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button className="link" onClick={() => setEditFor(r)}>Edit items</button>}
+            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>{r.inquiry_source === 'IndiaMART' && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => openMail(r)}>Original email</button>}{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setAppFor(r)}>Customer app</button>}{me.role !== 'service' && <button className="link" onClick={() => setQuoFor(r)}>Quotations</button>}{(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button className="link" onClick={() => setEditFor(r)}>Edit items</button>}
             {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button><button className="link" onClick={() => del(r)}>Delete</button></>}
           </div>
         </div>
