@@ -83,6 +83,41 @@ var DONE_LABEL = 'Hermora-done';
 
 @@PARSER@@
 
+// Contact details written in blue (clickable phone numbers and email addresses) inside the IndiaMART part of the email.
+function blueContacts_(html) {
+  var cut = html.search(/Forwarded message/i); if (cut >= 0) html = html.slice(cut);
+  var end = html.search(/Reply To This Message|If you would like to unsubscribe|IndiaMART InterMESH/i); if (end > 0) html = html.slice(0, end);
+  var texts = [], m;
+  var isBlue = function (c) {
+    c = (c || '').toLowerCase().replace(/\s/g, ''); var r, g, b, h;
+    if ((h = c.match(/^#([0-9a-f]{6})$/))) { r = parseInt(h[1].substr(0, 2), 16); g = parseInt(h[1].substr(2, 2), 16); b = parseInt(h[1].substr(4, 2), 16); }
+    else if ((h = c.match(/^#([0-9a-f]{3})$/))) { r = parseInt(h[1][0] + h[1][0], 16); g = parseInt(h[1][1] + h[1][1], 16); b = parseInt(h[1][2] + h[1][2], 16); }
+    else if ((h = c.match(/^rgba?\((\d+),(\d+),(\d+)/))) { r = +h[1]; g = +h[2]; b = +h[3]; }
+    else return c === 'blue' || c === 'mediumblue' || c === 'royalblue';
+    return b > 120 && b > r + 50 && b > g + 20;
+  };
+  var strip = function (s) { return s.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim(); };
+  // 1) tel: and mailto: links
+  var re1 = /<a\b[^>]*href=["'](tel|mailto):([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  while ((m = re1.exec(html))) texts.push(decodeURIComponent(m[2]) + ' ' + strip(m[3]));
+  // 2) any link or text written in a blue colour
+  var re2 = /<(a|span|font|b|strong|td|p|div)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
+  while ((m = re2.exec(html))) {
+    var at = m[1].toLowerCase() === 'font' ? (m[2].match(/color=["']([^"']+)["']/i) || []) : (m[2].match(/style=["'][^"']*?(?:^|;|\s)color\s*:\s*([^;"']+)/i) || []);
+    if (at[1] && isBlue(at[1])) texts.push(strip(m[3]));
+  }
+  var phones = [], emails = [];
+  texts.forEach(function (t) {
+    (t.match(/(?:\+\s*91[\s-]*)?\(?0?[6-9]\d[\d\s-]{7,12}\d/g) || []).forEach(function (p) {
+      var dg = p.replace(/\D/g, ''); if (dg.length < 10 || dg.length > 13) return;
+      var last = dg.slice(-10); if (last === '9696969696' || /^1800/.test(dg)) return;
+      var n = (dg.length === 10 ? '+91' : '+') + dg; if (phones.indexOf(n) < 0) phones.push(n);
+    });
+    (t.match(/[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || []).forEach(function (e) { if (!/indiamart\.com$/i.test(e) && emails.indexOf(e) < 0) emails.push(e); });
+  });
+  return { phones: phones, emails: emails };
+}
+
 function call_(fn, body) {
   var r = UrlFetchApp.fetch(URL_ + '/rest/v1/rpc/' + fn, { method: 'post', contentType: 'application/json', headers: { apikey: KEY_, Authorization: 'Bearer ' + KEY_ }, payload: JSON.stringify(body), muteHttpExceptions: true });
   return { code: r.getResponseCode(), text: r.getContentText() };
@@ -97,6 +132,7 @@ function checkMail() {
       var subject = m.getSubject() || '';
       var body = m.getPlainBody() || '';
       var d = parseLead(body);
+      try { var bc = blueContacts_(m.getBody() || ''); if (bc.phones.length) d.phone = bc.phones[0]; if (bc.emails.length) d.email = bc.emails[0]; } catch (e) {}
       d.cc = ((m.getCc() || '') + ',' + (m.getTo() || '')).match(/[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [];
       var res;
       if (!d.phone && !d.name) res = call_('intake_unreadable', { p_secret: SECRET_, p_message_id: m.getId(), p_raw: subject + '\n\n' + body });
