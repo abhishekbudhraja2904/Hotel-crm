@@ -111,13 +111,3 @@ export function LockMortis({ me }: { me: any }) {
     {spares.data?.filter((p) => p.id !== m.standardId).map((p) => <label key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexDirection: 'row', color: 'inherit', fontSize: 14 }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={m.optionIds.includes(p.id)} onChange={(e) => put('mortisOptionIds', e.target.checked ? [...m.optionIds, p.id] : m.optionIds.filter((x) => x !== p.id))} />{p.name}</label>)}
     {msg && <p className="msg">{msg}</p>}</div>
 }
-
-export function CustomerAppSettings({ me }: { me: any }) {
-  const qc = useQueryClient(), s = useSettings(), [url, setUrl] = useState(s.appUrl), [ph, setPh] = useState(s.appBackupPhone), [msg, setMsg] = useState('')
-  useEffect(() => { setUrl(s.appUrl); setPh(s.appBackupPhone) }, [s.appUrl, s.appBackupPhone])
-  async function save() { const e1 = await saveSetting('customerAppUrl', url.trim(), me.id); const e2 = e1 ?? await saveSetting('appBackupPhone', ph.trim(), me.id); setMsg(e2 ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] }) }
-  return <div className="card"><h3 style={{ margin: 0 }}>Customer app</h3>
-    <label>App web address (put in the invite message)<input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." /></label>
-    <label>Office backup WhatsApp number (used when a staff member has no number)<input value={ph} inputMode="tel" onChange={(e) => setPh(e.target.value)} /></label>
-    {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save</button></div>
-}
