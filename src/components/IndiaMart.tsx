@@ -118,6 +118,53 @@ function blueContacts_(html) {
   return { phones: phones, emails: emails };
 }
 
+var OWN_NUMBERS_ = ['9312435438', '9711482220']; // OFORT's own phone numbers, never taken as the buyer's
+
+function htmlToText_(html) {
+  return html.replace(/<(br|\/p|\/div|\/tr|\/li|\/h\d|\/table)[^>]*>/gi, '\n').replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/[ \t]+/g, ' ');
+}
+
+// The IndiaMART part of an email: after "Forwarded message", before the IndiaMART footer.
+function section_(text) {
+  var fm = text.search(/-{3,}\s*Forwarded message\s*-{3,}/i); if (fm >= 0) text = text.slice(fm);
+  var z = text.search(/Reply To This Message|If you would like to unsubscribe/i); if (z > 0) text = text.slice(0, z);
+  return text;
+}
+
+// Last-resort search: the first Indian mobile number in the IndiaMART part (not ours, not a toll-free line).
+function anyPhone_(text) {
+  var found = null;
+  (text.match(/(?:\+\s*91[\s-]*)?\(?0?[6-9]\d[\d\s-]{7,12}\d/g) || []).forEach(function (p) {
+    if (found) return;
+    var dg = p.replace(/\D/g, ''); if (dg.length < 10 || dg.length > 13) return;
+    var last = dg.slice(-10); if (OWN_NUMBERS_.indexOf(last) >= 0 || last === '9696969696' || /^1800/.test(dg)) return;
+    found = (dg.length === 10 ? '+91' : '+') + dg;
+  });
+  return found;
+}
+
+// Reads any IndiaMART email, whatever its layout. Never throws; returns null only when it is clearly not a lead.
+function buildLead_(subject, plain, html) {
+  var text = plain || '';
+  if (text.replace(/\s/g, '').length < 80 && html) text = htmlToText_(html);
+  var d = {};
+  try { d = parseLead(text) || {}; } catch (e) { d = {}; }
+  try { var bc = blueContacts_(html || ''); if (bc.phones.length) d.phone = bc.phones[0]; if (bc.emails.length) d.email = bc.emails[0]; } catch (e) {}
+  if (d.phone && OWN_NUMBERS_.indexOf(String(d.phone).replace(/\D/g, '').slice(-10)) >= 0) delete d.phone;
+  if (d.product && /^[\d\s+()-]{8,}$/.test(d.product)) delete d.product;
+  var sec = section_(text);
+  if (!d.phone) { var ap = anyPhone_(sec); if (ap) d.phone = ap; }
+  if (!d.phone && html) { var ah = anyPhone_(section_(htmlToText_(html))); if (ah) d.phone = ah; }
+  if (!d.product) { var sj = (subject || '').replace(/^\s*((fwd?|re)\s*:\s*)+/i, '').replace(/buyer details for/i, '').replace(/\s+/g, ' ').trim(); if (sj) d.product = sj.slice(0, 80); }
+  if (!d.phone && !d.name) {
+    if (!/buyer|enquir|inquir|buy ?lead|requirement|contact details|interested in|quantity/i.test(sec + ' ' + subject)) return null;
+    d.name = 'IndiaMART lead (check email)';
+  }
+  if (d.name === 'IndiaMART lead (check email)' || !d.phone) d.extra = ((d.extra ? d.extra + '; ' : '') + 'Original email: ' + sec.replace(/\s+/g, ' ').slice(0, 700)).slice(0, 900);
+  return d;
+}
+
 function call_(fn, body) {
   var r = UrlFetchApp.fetch(URL_ + '/rest/v1/rpc/' + fn, { method: 'post', contentType: 'application/json', headers: { apikey: KEY_, Authorization: 'Bearer ' + KEY_ }, payload: JSON.stringify(body), muteHttpExceptions: true });
   return { code: r.getResponseCode(), text: r.getContentText() };
@@ -125,17 +172,16 @@ function call_(fn, body) {
 
 function checkMail() {
   var label = GmailApp.getUserLabelByName(DONE_LABEL) || GmailApp.createLabel(DONE_LABEL);
-  var threads = GmailApp.search('indiamart newer_than:3d -label:' + DONE_LABEL, 0, 30);
+  var threads = GmailApp.search('indiamart newer_than:10d -label:' + DONE_LABEL, 0, 50);
   threads.forEach(function (t) {
     var ok = true;
     t.getMessages().forEach(function (m) {
       var subject = m.getSubject() || '';
       var body = m.getPlainBody() || '';
-      var d = parseLead(body);
-      try { var bc = blueContacts_(m.getBody() || ''); if (bc.phones.length) d.phone = bc.phones[0]; if (bc.emails.length) d.email = bc.emails[0]; } catch (e) {}
-      d.cc = ((m.getCc() || '') + ',' + (m.getTo() || '')).match(/[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [];
+      var d = buildLead_(subject, body, m.getBody() || '');
+      if (d) d.cc = ((m.getCc() || '') + ',' + (m.getTo() || '')).match(/[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [];
       var res;
-      if (!d.phone && !d.name) res = call_('intake_unreadable', { p_secret: SECRET_, p_message_id: m.getId(), p_raw: subject + '\n\n' + body });
+      if (!d) res = call_('intake_unreadable', { p_secret: SECRET_, p_message_id: m.getId(), p_raw: subject + '\n\n' + body });
       else res = call_('intake_indiamart', { p_secret: SECRET_, p_message_id: m.getId(), p_data: d });
       if (res.code >= 300) ok = false;
       else if (res.text.indexOf('"paused"') > -1) ok = false;
