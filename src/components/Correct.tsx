@@ -24,7 +24,7 @@ export default function Correct({ product, parts, onClose, onDone }: { product: 
         <div className="muted">{Number(product.in_store)} in store now</div>
         <label>Add (+) or remove (−) this many pieces<input type="number" value={val} onChange={(e) => setVal(e.target.value)} style={{ fontSize: 24, height: 52 }} /></label>
       </>}
-      {isLock && <button type="button" className="link" onClick={() => setSplit(!split)}>{split ? 'Just change the total instead' : 'Enter Left / Right counts (optional)'}</button>}
+      {isLock && <button type="button" className="link" onClick={() => setSplit(!split)}>{split ? 'Just change the total instead' : 'Enter door handle counts, Left / Right (optional)'}</button>}
       <label>Why? (for example damaged, counted wrong)<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
       {err && <p className="msg">{err}</p>}
       <button className="primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button>

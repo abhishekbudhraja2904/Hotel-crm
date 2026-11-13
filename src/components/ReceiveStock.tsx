@@ -21,7 +21,7 @@ export default function ReceiveStock({ products, onClose, onDone }: { products: 
     <div className="modal"><div className="card">
       <h3 style={{ margin: 0 }}>Stock came in</h3>
       <label>Which product?<select value={pid} onChange={(e) => { setPid(e.target.value); setL(''); setR('') }}><option value="">Choose…</option>{productOptions(products, 'product_id')}</select></label>
-      {isLock && <div className="warnbox" style={{ display: 'grid', gap: 8 }}><b>Left / Right split (optional)</b><div className="muted">Fill these if you know how many are Left and Right. Or leave both empty and just enter the total below.</div>
+      {isLock && <div className="warnbox" style={{ display: 'grid', gap: 8 }}><b>Door handle (optional)</b><div className="muted">Fill these if you know how many are Left and Right door handles. Or leave both empty and just enter the total below.</div>
         <label>Left handle pieces<input type="number" inputMode="numeric" min="0" value={L} onChange={(e) => setL(e.target.value)} style={{ fontSize: 22, height: 48 }} /></label>
         <label>Right handle pieces<input type="number" inputMode="numeric" min="0" value={R} onChange={(e) => setR(e.target.value)} style={{ fontSize: 22, height: 48 }} /></label>
         <div className="muted">Total: {nl + nr}</div></div>}
