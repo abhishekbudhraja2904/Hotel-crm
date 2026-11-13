@@ -9,7 +9,7 @@ let k = 1
 export const newRow = (): ItemRow => ({ key: k++, cat: '', pid: '', qty: '', price: '' })
 export function useCatalogue() {
   return useQuery({ queryKey: ['catalogue'], staleTime: 30000, queryFn: async () => {
-    const { data, error } = await supabase.from('products').select('id,product_name,product_category,unit,family').eq('active', true).order('sort_order').order('product_name'); if (error) throw error; return data as any[] } })
+    const { data, error } = await supabase.from('products').select('id,product_name,product_category,unit,family').eq('active', true).is('handle_of', null).order('sort_order').order('product_name'); if (error) throw error; return data as any[] } })
 }
 // Mortis choices (spare parts) that can be fitted instead of the standard mortis in a lock.
 export function useMortisOptions() {

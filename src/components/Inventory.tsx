@@ -16,6 +16,9 @@ export default function Inventory({ me }: { me: any }) {
   const [modal, setModal] = useState<'' | 'receive' | 'keeper'>(''), [fix, setFix] = useState<any>(null)
   const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false), [view, setView] = useState<'prod' | 'spare'>('prod')
   const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['lowstock'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
+  // Left / Right handle versions: which locks already have them
+  const handles = useQuery({ queryKey: ['inventory', 'handles'], queryFn: async () => ((await supabase.from('products').select('id,handle_of').not('handle_of', 'is', null)).data ?? []) as any[] })
+  async function addHandles(pid: string) { const { error } = await supabase.rpc('admin_add_handle_versions', { p_product: pid }); setMsg(error ? error.message : 'Left and Right handle versions added below. Count their stock with "Fix total count".'); refresh() }
   const can = useQuery({ queryKey: ['inventory', 'can'], queryFn: async () => !!(await supabase.rpc('can_update_inventory')).data })
   const keeper = useQuery({ queryKey: ['inventory', 'keeper'], queryFn: async () => ((await supabase.rpc('inventory_keeper_info')).data ?? [])[0] ?? null })
   const stock = useQuery({ queryKey: ['inventory', 'overview'], queryFn: async () => { const { data, error } = await supabase.rpc('stock_overview'); if (error) throw error; return data as any[] } })
@@ -73,7 +76,7 @@ export default function Inventory({ me }: { me: any }) {
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <div style={{ minWidth: 0 }}><b>{p.product_name}</b><div className="muted">{see ? `${n(p.in_store)} in store · ` : ''}{n(p.locked)} blocked{p.product_code ? ` · ${p.product_code}` : ''}</div>{low && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: reorder soon</div>}</div>
             {see ? <div className="bignum" style={low ? { color: '#9b3b30' } : {}}>{n(p.free)}<small>free</small></div> : <div className="bignum">{n(p.locked)}<small>blocked</small></div>}</div>
-          {open && canEdit && <div className="bar" onClick={(e) => e.stopPropagation()}><button onClick={() => setFix({ product: p })}>Fix total count</button></div>}
+          {open && (canEdit || isAdmin) && <div className="bar" onClick={(e) => e.stopPropagation()}>{canEdit && <button onClick={() => setFix({ product: p })}>Fix total count</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && !(handles.data ?? []).some((h: any) => h.id === p.product_id || h.handle_of === p.product_id) && <button onClick={() => addHandles(p.product_id)}>Add Left &amp; Right handle versions</button>}</div>}
         </div>) })}
 
       <div><button className="link" onClick={() => setShowMoves(!showMoves)}>{showMoves ? 'Hide history' : 'Show stock history'}</button></div>
