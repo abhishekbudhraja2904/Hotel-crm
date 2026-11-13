@@ -5,6 +5,7 @@ import { fmtDate, fmtDateTime } from '../lib/dates'
 import ReceiveStock from './ReceiveStock'
 import Keeper from './Keeper'
 import Correct from './Correct'
+import LockParts from './LockParts'
 import LowStock from './LowStock'
 import Spares from './Spares'
 import { AgeTag, ageLook } from '../lib/age'
@@ -15,7 +16,7 @@ export default function Inventory({ me }: { me: any }) {
   const qc = useQueryClient(), isAdmin = me.role === 'admin', [msg, setMsg] = useState('')
   const [modal, setModal] = useState<'' | 'receive' | 'keeper'>(''), [fix, setFix] = useState<any>(null)
   const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false), [view, setView] = useState<'prod' | 'spare'>('prod')
-  const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['lowstock'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['lowstock'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }); qc.invalidateQueries({ queryKey: ['spares'] }) }
   // Left / Right handle versions: which locks already have them
   const handles = useQuery({ queryKey: ['inventory', 'handles'], queryFn: async () => ((await supabase.from('products').select('id,handle_of,handle').not('handle_of', 'is', null)).data ?? []) as any[] })
   async function addHandles(pid: string) { const { error } = await supabase.rpc('admin_add_handle_versions', { p_product: pid }); setMsg(error ? error.message : 'Left / Right enabled. Use "Fix total count" to type how many Left and how many Right.'); refresh() }
@@ -26,6 +27,8 @@ export default function Inventory({ me }: { me: any }) {
   const queue = useQuery({ queryKey: ['inventory', 'queue'], refetchInterval: 30000, queryFn: async () => { const { data, error } = await supabase.rpc('pack_queue'); if (error) throw error; return data as any[] } })
   const moves = useQuery({ queryKey: ['inventory', 'moves'], enabled: showMoves, queryFn: async () => { const { data, error } = await supabase.from('stock_movements').select('id,qty_change,reason,note,created_at,products(product_name),employees:created_by(employee_name)').order('created_at', { ascending: false }).limit(25); if (error) throw error; return data } })
   const hset = new Set((handles.data ?? []).map((h: any) => h.id)), hmap = new Map((handles.data ?? []).map((h: any) => [h.id, h.handle_of])), hhand = new Map((handles.data ?? []).map((h: any) => [h.id, h.handle]))
+  const build = useQuery({ queryKey: ['inventory', 'build'], queryFn: async () => ((await supabase.rpc('lock_build_info')).data ?? []) as any[] }), [recipe, setRecipe] = useState<any>(null)
+  const bmap = new Map<string, any>((build.data ?? []).map((b: any) => [b.product_id, b] as [string, any]))
   const canEdit = !!can.data, k = keeper.data
   async function packDone(r: any) { if (!confirm(`Packing no. ${r.packing_no} is fully packed?`)) return; const { error } = await supabase.rpc('mark_packing_done', { p_inq: r.inquiry_id }); setMsg(error ? error.message : ''); qc.invalidateQueries({ queryKey: ['inventory'] }) }
   async function takeBack() { if (!confirm('Take back stock updating from ' + k?.employee_name + '?')) return; const { error } = await supabase.rpc('clear_inventory_keeper'); setMsg(error ? error.message : ''); refresh() }
@@ -80,9 +83,9 @@ export default function Inventory({ me }: { me: any }) {
         return (
         <div className="card tap" key={p.product_id} style={{ borderLeftColor: low ? '#9b3b30' : '#6B8F72' }} onClick={() => setOpenId(open ? '' : p.product_id)}>
           <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <div style={{ minWidth: 0 }}><b>{p.product_name}</b><div className="muted">{see ? `${n(p.in_store)} in store${has ? ` (${part('Left')} Left · ${part('Right')} Right)` : ''} · ` : ''}{n(p.locked)} blocked{p.product_code ? ` · ${p.product_code}` : ''}</div>{low && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: reorder soon</div>}</div>
+            <div style={{ minWidth: 0 }}><b>{p.product_name}</b><div className="muted">{see ? `${n(p.in_store)} in store${has ? ` (${part('Left')} Left · ${part('Right')} Right)` : ''} · ` : ''}{n(p.locked)} blocked{p.product_code ? ` · ${p.product_code}` : ''}</div>{low && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: reorder soon</div>}{see && bmap.get(p0.product_id) && <div className="muted" style={{ fontSize: 13 }}>From parts: can build {n(bmap.get(p0.product_id).can_build)} more{Number(bmap.get(p0.product_id).short_for_orders) > 0 && <b style={{ color: '#9b3b30' }}> · orders need {n(bmap.get(p0.product_id).short_for_orders)} more set(s) of parts</b>}</div>}</div>
             {see ? <div className="bignum" style={low ? { color: '#9b3b30' } : {}}>{n(p.free)}<small>free</small></div> : <div className="bignum">{n(p.locked)}<small>blocked</small></div>}</div>
-          {open && (canEdit || isAdmin) && <div className="bar" onClick={(e) => e.stopPropagation()}>{canEdit && <button onClick={() => setFix({ product: p, parts: has || /^RFID Hotel Lock/i.test(p.product_category ?? '') ? { left: part('Left'), right: part('Right') } : null })}>Fix total count</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && !has && <button onClick={() => addHandles(p.product_id)}>Enable Left &amp; Right</button>}{isAdmin && has && <button className="link" onClick={() => removeHandles(p.product_id)}>Remove Left &amp; Right versions</button>}</div>}
+          {open && (canEdit || isAdmin) && <div className="bar" onClick={(e) => e.stopPropagation()}>{canEdit && <button onClick={() => setFix({ product: p, parts: has || /^RFID Hotel Lock/i.test(p.product_category ?? '') ? { left: part('Left'), right: part('Right') } : null })}>Fix total count</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && !has && <button onClick={() => addHandles(p.product_id)}>Enable Left &amp; Right</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && <button onClick={() => setRecipe({ product: p0, current: bmap.get(p0.product_id)?.parts ?? [] })}>Parts of this lock</button>}{isAdmin && has && <button className="link" onClick={() => removeHandles(p.product_id)}>Remove Left &amp; Right versions</button>}</div>}
         </div>) })}
 
       <div><button className="link" onClick={() => setShowMoves(!showMoves)}>{showMoves ? 'Hide history' : 'Show stock history'}</button></div>
@@ -91,6 +94,7 @@ export default function Inventory({ me }: { me: any }) {
 
       {modal === 'receive' && <ReceiveStock products={(stock.data ?? []).filter((p: any) => !(handles.data ?? []).some((h: any) => h.id === p.product_id))} onClose={() => setModal('')} onDone={refresh} />}
       {modal === 'keeper' && <Keeper me={me} onClose={() => setModal('')} onDone={refresh} />}
+      {recipe && <LockParts product={recipe.product} current={recipe.current} onClose={() => setRecipe(null)} onDone={refresh} />}
       {fix && <Correct product={fix.product} parts={fix.parts} onClose={() => setFix(null)} onDone={refresh} />}
     </section>
   )
