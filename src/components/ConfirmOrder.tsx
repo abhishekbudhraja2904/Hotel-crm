@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import WhoFor from './WhoFor'
+import { productOptions } from './ProductOptions'
 // Shown when an inquiry is moved to Order Confirmed: ties each line to a catalogue product so the stock can be LOCKED for this customer.
 export default function ConfirmOrder({ inquiry, onConfirm, onClose }: { inquiry: any; onConfirm: () => Promise<string | null>; onClose: () => void }) {
   const [pick, setPick] = useState<Record<string, string>>({}), [err, setErr] = useState(''), [busy, setBusy] = useState(false), [packNo, setPackNo] = useState<number | null>(null), [packer, setPacker] = useState(''), [packerSaved, setPackerSaved] = useState('')
@@ -67,7 +68,7 @@ export default function ConfirmOrder({ inquiry, onConfirm, onClose }: { inquiry:
           <b>{i.product_name_snapshot} × {i.quantity ?? '?'}</b>
           <select value={v} onChange={(e) => setPick({ ...pick, [i.id]: e.target.value })}>
             <option value="">Not a stock item (no stock blocked)</option>
-            {prods.data?.map((p) => <option key={p.id} value={p.id}>{p.product_name}{p.product_code ? ` (${p.product_code})` : ''}</option>)}
+            {productOptions(prods.data ?? [])}
           </select>
           {needHand(i) && <div className="warnbox" style={{ display: 'grid', gap: 6 }}>
             <b>Which handle? (required)</b>
