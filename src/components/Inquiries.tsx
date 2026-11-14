@@ -11,6 +11,8 @@ import QuoteForm from './QuoteForm'
 import { moveStage } from '../lib/stage'
 import { tempOf, TEMP_LOOK } from '../lib/temperature'
 import DateField from './DateField'
+import Reorder from './Reorder'
+import OldCustomers from './OldCustomers'
 import WhoFor from './WhoFor'
 import InquiryBar, { useMoney } from './Progress'
 import ItemsEditor, { ItemRow, newRow, rowsFromItems, useCatalogue } from './ItemsEditor'
@@ -25,6 +27,7 @@ export default function Inquiries({ me }: { me: any }) {
   const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [appFor, setAppFor] = useState<any>(null), [custFor, setCustFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null), [quoFor, setQuoFor] = useState<any>(null), [quoFormFor, setQuoFormFor] = useState<any>(null), [editFor, setEditFor] = useState<any>(null), [dispFor, setDispFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
+  const [view, setView] = useState<'list' | 'old'>('list'), [reorderFor, setReorderFor] = useState<any>(null)
   const [emp, setEmp] = useState(''), [tf, setTf] = useState(''), cfg = useSettings()
   async function setNeeded(r: any, v: string) { const { error } = await supabase.from('inquiries').update({ needed_by: v || null }).eq('id', r.id); if (error) setMsg(error.message); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   const lastFu = useQuery({ queryKey: ['followups', 'last'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('inquiry_id,outcome,completed_at').eq('status', 'Completed').order('completed_at', { ascending: false }).limit(500)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
@@ -87,6 +90,8 @@ export default function Inquiries({ me }: { me: any }) {
 
   return (
     <section>
+      {(me.role === 'admin' || me.role === 'sales') && <div className="bar"><button className={view === 'list' ? 'primary' : ''} onClick={() => setView('list')}>Inquiries</button><button className={view === 'old' ? 'primary' : ''} onClick={() => setView('old')}>Old customers</button></div>}
+      {view === 'list' ? <>
       <div className="bar">
         <input placeholder="Search inquiries…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={stage} onChange={(e) => setStage(e.target.value)}><option value="">All stages</option>{STAGES.map((s) => <option key={s}>{s}</option>)}</select>
@@ -111,11 +116,12 @@ export default function Inquiries({ me }: { me: any }) {
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
-            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>{r.inquiry_source === 'IndiaMART' && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => openMail(r)}>Original email</button>}{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setAppFor(r)}>Customer app</button>}{me.role !== 'service' && <button className="link" onClick={() => setQuoFor(r)}>Quotations</button>}{(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button className="link" onClick={() => setEditFor(r)}>Edit items</button>}
+            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>{r.dispatched_at && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setReorderFor({ customerId: r.customer_id, name: r.customers?.customer_name ?? '', inquiryId: r.id })}>Repeat order</button>}{r.inquiry_source === 'IndiaMART' && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => openMail(r)}>Original email</button>}{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setAppFor(r)}>Customer app</button>}{me.role !== 'service' && <button className="link" onClick={() => setQuoFor(r)}>Quotations</button>}{(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button className="link" onClick={() => setEditFor(r)}>Edit items</button>}
             {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button><button className="link" onClick={() => del(r)}>Delete</button></>}
           </div>
         </div>
       ))}
+      </> : <OldCustomers me={me} onReorder={(c) => setReorderFor(c)} />}
       {confirmFor && <ConfirmOrder inquiry={confirmFor} onClose={() => setConfirmFor(null)} onConfirm={async () => { const e = await moveStage(confirmFor, 'Order Confirmed'); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); qc.invalidateQueries({ queryKey: ['inventory'] }); return e }} />}
       {quoFormFor && <QuoteForm inquiry={quoFormFor} onClose={() => setQuoFormFor(null)} onSaved={async () => { const e = await moveStage(quoFormFor, 'Quotation Sent'); qc.invalidateQueries({ queryKey: ['inquiries'] }); return e }} onSkip={async () => { const e = await moveStage(quoFormFor, 'Quotation Sent'); qc.invalidateQueries({ queryKey: ['inquiries'] }); return e }} />}
       {quoFor && <Quotes me={me} inquiry={quoFor} onClose={() => setQuoFor(null)} />}
@@ -126,6 +132,7 @@ export default function Inquiries({ me }: { me: any }) {
       {fuFor && <ScheduleFollowup me={me} inquiryId={fuFor.id} assignedTo={fuFor.assigned_to} title="Add a follow-up" who={fuFor.customers} onClose={() => setFuFor(null)} />}
       {editFor && <EditItems inquiry={editFor} onClose={() => setEditFor(null)} />}
       {dispFor && <Dispatch me={me} inquiry={dispFor} onClose={() => setDispFor(null)} />}
+      {reorderFor && <Reorder me={me} customerId={reorderFor.customerId} name={reorderFor.name} fromInquiryId={reorderFor.inquiryId} onClose={() => setReorderFor(null)} onCreated={(row) => { setReorderFor(null); qc.invalidateQueries({ queryKey: ['inquiries'] }); setConfirmFor(row) }} />}
       {open && <NewInquiry me={me} emps={isAdmin ? emps : []} onClose={() => setOpen(false)} />}
     </section>
   )
