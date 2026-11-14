@@ -133,6 +133,7 @@ export default function Settings({ me }: { me: any }) {
         <LockMortis me={me} />
         <IndiaMartIntake me={me} />
         <ListEditor title="Inquiry sources" hint="Where an inquiry came from, e.g. IndiaMART. Renaming does not change old records." values={s.sources} onSave={(i) => saveList('sources', i)} />
+        <ListEditor title="Follow-up outcomes" hint="The choices shown when a follow-up is marked Done. Renaming does not change old records." values={s.outcomes} onSave={(i) => saveList('followupOutcomes', i)} />
         <ListEditor title="Reasons an inquiry is lost" hint="The choices shown when someone marks an inquiry Lost. Renaming does not change old records." values={s.lostReasons} onSave={(i) => saveList('lostReasons', i)} />
         <TileEditor tiles={s.tiles} stages={s.stages} onSave={async (t) => { const e = await saveSetting('tiles', t, me.id); done(); return e }} />
         <ListEditor title="Pipeline stages" hint="Renaming moves existing inquiries to the new name. 'Quotation Sent' feeds the dashboard's pending-quotations count. The fixed stages drive built-in behaviour." fixedStart={[FIRST]} fixedEnd={LAST} values={mid} onSave={saveStages} />

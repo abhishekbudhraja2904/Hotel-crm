@@ -24,6 +24,7 @@ export default function Inquiries({ me }: { me: any }) {
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const [emp, setEmp] = useState('')
+  const lastFu = useQuery({ queryKey: ['followups', 'last'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('inquiry_id,outcome,completed_at').eq('status', 'Completed').order('completed_at', { ascending: false }).limit(500)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
   const [q, setQ] = useState(''), [stage, setStage] = useState(''), [open, setOpen] = useState(false), [msg, setMsg] = useState('')
   const { data = [], isLoading, error } = useQuery({
     queryKey: ['inquiries'],
@@ -70,14 +71,15 @@ export default function Inquiries({ me }: { me: any }) {
     if (error) setMsg(error.message)
   }
 
-  // Opens the IndiaMART email that created this inquiry, in the company's leads Gmail.
+  // Opens the IndiaMART email that created this inquiry in the company's leads Gmail.
+  // The admin is signed in to that Gmail; sales open it through Gmail's "delegated access" to it.
   async function openMail(r: any) {
     setMsg('')
     const [id, box] = await Promise.all([supabase.rpc('inquiry_source_mail', { p_inq: r.id }), supabase.from('org_settings').select('value').eq('key', 'indiamartMailbox').maybeSingle()])
     if (id.error) return setMsg(id.error.message)
     if (!id.data) return setMsg('No email is linked to this inquiry (it may have been added by hand).')
     const mailbox = (box.data?.value as string) || 'oforttleadsintake@gmail.com'
-    window.open(`https://mail.google.com/mail/?authuser=${encodeURIComponent(mailbox)}#all/${id.data}`, '_blank')
+    window.open(me.role === 'admin' ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(mailbox)}#all/${id.data}` : `https://mail.google.com/mail/b/${encodeURIComponent(mailbox)}/u/0/#all/${id.data}`, '_blank')
   }
 
   return (
@@ -98,6 +100,7 @@ export default function Inquiries({ me }: { me: any }) {
           <div>{r.customers?.customer_name} {(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setCustFor(r)}>✎ Edit</button>} {r.customers?.phone_number && <a href={`tel:${r.customers.phone_number}`}>📞 {r.customers.phone_number}</a>}</div>
           <div className="muted">{r.inquiry_items?.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || r.inquiry_title || 'No product yet'}</div>
           <div className="muted">Assigned: {r.assigned?.employee_name ?? 'Unassigned'} · Next follow-up: {r.next_followup_at ? fmtDateTime(r.next_followup_at) : '—'}</div>
+          {lastFu.data?.get(r.id) && <div className="muted">Last follow-up: <b>{lastFu.data.get(r.id).outcome ?? 'Done'}</b> · {fmtDateTime(lastFu.data.get(r.id).completed_at)}</div>}
           <InquiryBar r={r} stages={STAGES} money={money.data} />
           {r.sales_stage === 'Order Confirmed' && (() => { const m = money.data?.[r.id]; return <div className="row"><div className="muted">{r.packing_no ? <>Packing no. <b>{r.packing_no}</b></> : null}{m?.due && m.status !== 'Paid in full' ? ` · payment due ${fmtDate(m.due)}` : ''}</div><span style={{ display: 'flex', gap: 10 }}><button className="link" onClick={() => setPayFor(r)}>Payments</button>{me.role !== 'service' && <button className="link" onClick={() => setDispFor(r)}>Dispatch</button>}</span></div> })()}
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
