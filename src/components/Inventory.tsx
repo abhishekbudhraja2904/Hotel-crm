@@ -6,6 +6,7 @@ import ReceiveStock from './ReceiveStock'
 import Keeper from './Keeper'
 import Correct from './Correct'
 import LockParts from './LockParts'
+import OrderTools from './OrderTools'
 import LowStock from './LowStock'
 import Spares from './Spares'
 import { AgeTag, ageLook } from '../lib/age'
@@ -69,6 +70,7 @@ export default function Inventory({ me }: { me: any }) {
           {r.packed_at
             ? <div className="okbox">Packing done · {fmtDateTime(r.packed_at)}</div>
             : <div className="bar"><button className="primary bigbtn go" onClick={() => packDone(r)}>Packing done</button><span className="muted">Reminders every {n(r.remind_hours)} h until you tap this</span></div>}
+          <OrderTools r={r} me={me} />
           <div className="bar"><HandOverButton me={me} kind="packing" id={r.inquiry_id} currentId={r.packer_id} title={`Packing no. ${r.packing_no} · ${r.customer}`} /></div>
         </div>) })}
 
