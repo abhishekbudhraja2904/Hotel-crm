@@ -1,9 +1,9 @@
 import { ReactNode, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { useSettings } from '../lib/settings'
+import { useSettings, saveSetting } from '../lib/settings'
 // Admin only: the product catalogue. Everyone else picks from this list.
-export default function Catalogue({ categoryEditor }: { categoryEditor?: ReactNode }) {
+export default function Catalogue({ categoryEditor, meId }: { categoryEditor?: ReactNode; meId?: string }) {
   const qc = useQueryClient(), { categories } = useSettings(), [edit, setEdit] = useState<any>(null), [msg, setMsg] = useState(''), [showHidden, setShowHidden] = useState(false), [find, setFind] = useState('')
   const [drag, setDrag] = useState<string | null>(null), [over, setOver] = useState<string | null>(null), groupRef = useRef<any[]>([]), allRef = useRef<any[]>([])
   const [openCat, setOpenCat] = useState<string | null>(null), [pickFor, setPickFor] = useState<string | null>(null), [editCats, setEditCats] = useState(false)
@@ -43,6 +43,29 @@ export default function Catalogue({ categoryEditor }: { categoryEditor?: ReactNo
     }
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up)
   }
+  // Drag a whole category by its handle to change the order of the categories (everyone sees this order).
+  const [catDrag, setCatDrag] = useState<string | null>(null), [catOver, setCatOver] = useState<string | null>(null)
+  function startCatDrag(e: React.PointerEvent, name: string, names: string[]) {
+    e.preventDefault(); setOpenCat(null); setCatDrag(name); setCatOver(null); let target: string | null | undefined, y = e.clientY
+    const sp = scrollParent(e.currentTarget as HTMLElement)
+    const move = (ev: PointerEvent) => {
+      y = ev.clientY
+      const row = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-cat]') as HTMLElement | null; if (!row) return
+      const i = names.indexOf(row.dataset.cat as string); if (i < 0) return
+      const r = row.getBoundingClientRect(), before = ev.clientY < r.top + r.height / 2
+      target = before ? names[i] : i + 1 < names.length ? names[i + 1] : 'END'; setCatOver(target)
+    }
+    const tick = setInterval(() => { const h = window.innerHeight, d = y < 90 ? -14 : y > h - 90 ? 14 : 0; if (d) (sp instanceof Window ? window.scrollBy(0, d) : sp.scrollBy(0, d)) }, 16)
+    const up = async () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); clearInterval(tick)
+      setCatDrag(null); setCatOver(null)
+      if (target && target !== name) {
+        const rest = names.filter((x) => x !== name); rest.splice(target === 'END' ? rest.length : rest.indexOf(target), 0, name)
+        if (rest.join('|') !== names.join('|')) { const err = await saveSetting('categories', rest.filter((x) => categories.includes(x)), meId ?? ''); setMsg(err ?? 'Category order saved.'); qc.invalidateQueries({ queryKey: ['settings'] }); refresh() }
+      }
+    }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up)
+  }
   async function top(p: any) { const { error } = await supabase.rpc('move_product', { p_id: p.id, p_dir: 'top' }); setMsg(error ? error.message : ''); refresh() }
   const all = (list.data ?? []).filter((p) => p.active), hid = (list.data ?? []).filter((p) => !p.active)
   allRef.current = all
@@ -58,7 +81,7 @@ export default function Catalogue({ categoryEditor }: { categoryEditor?: ReactNo
       <div className="muted">{q ? `${p.product_category} · ` : ''}{p.product_code ? `${p.product_code} · ` : ''}{p.unit}{Number(p.low_stock_level) > 0 ? ` · alert at ${Number(p.low_stock_level)}` : ''}{p.family ? ` · Group: ${p.family}` : ''}</div></div>
     <span style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{draggable && <button className="link" onClick={() => top(p)}>Top</button>}<button className="link" onClick={() => setEdit(p)}>Edit</button><button className="link" onClick={() => confirm(`Hide ${p.product_name}?`) && setActive(p, false)}>Hide</button></span></div>
   return <div className="card"><h3 style={{ margin: 0 }}>Product catalogue and categories</h3>
-    <p className="muted" style={{ margin: 0 }}>Open a category to see its products. Press a product's name to move it to another category. Drag a product by the ⠿ handle to change the order everyone sees, or press Top to put it first. Hiding a product keeps its history.</p>
+    <p className="muted" style={{ margin: 0 }}>Open a category to see its products. Press a product's name to move it to another category. Drag a category heading by its ⠿ handle to reorder the categories. Drag a product by its ⠿ handle to change the order everyone sees, or press Top to put it first. Hiding a product keeps its history.</p>
     {msg && <p className="msg">{msg}</p>}
     <div className="bar"><button className="primary" onClick={() => setEdit({ product_category: openCat ?? categories[0] })}>+ Add product</button>{categoryEditor && <button onClick={() => setEditCats(!editCats)}>{editCats ? 'Close category editor' : 'Edit categories'}</button>}</div>
     {editCats && categoryEditor}
@@ -69,8 +92,9 @@ export default function Catalogue({ categoryEditor }: { categoryEditor?: ReactNo
       {!found.length && <p className="empty">Nothing found.</p>}
       {found.map((p, i) => row(p, i, found.length, found, false))}
     </> : groups.map((g) => { const items = all.filter((p) => p.product_category === g.name), open = openCat === g.name
-      return <div key={g.name} style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-        <button className="link" style={{ width: '100%', textAlign: 'left', fontWeight: 700, fontSize: 16 }} onClick={() => { setOpenCat(open ? null : g.name); setPickFor(null) }}>{open ? '▾' : '▸'} {g.label} <span className="muted" style={{ fontWeight: 400 }}>({items.length})</span></button>
+      return <div key={g.name} data-cat={g.name} style={{ borderTop: catOver === g.name ? '3px solid #b5532f' : '1px solid var(--line)', borderBottom: catOver === 'END' && g.name === groups[groups.length - 1].name ? '3px solid #b5532f' : undefined, paddingTop: 6, opacity: catDrag === g.name ? 0.4 : 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>{categories.includes(g.name) && <span role="button" aria-label="Drag to change the category order" title="Drag to change the category order" onPointerDown={(e) => startCatDrag(e, g.name, groups.map((x) => x.name))} style={{ cursor: 'grab', touchAction: 'none', userSelect: 'none', fontSize: 22, padding: '0 10px 0 2px', color: 'var(--muted, #8b8f86)' }}>⠿</span>}
+        <button className="link" style={{ flex: 1, textAlign: 'left', fontWeight: 700, fontSize: 16 }} onClick={() => { setOpenCat(open ? null : g.name); setPickFor(null) }}>{open ? '▾' : '▸'} {g.label} <span className="muted" style={{ fontWeight: 400 }}>({items.length})</span></button></div>
         {open && <div style={{ display: 'grid', gap: 2, paddingLeft: 6 }}>
           {!items.length && <p className="empty">No products in this category yet.</p>}
           {items.map((p, i) => row(p, i, items.length, items, true))}</div>}

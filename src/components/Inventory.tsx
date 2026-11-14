@@ -16,7 +16,7 @@ const n = (x: any) => Number(x ?? 0).toLocaleString('en-IN')
 export default function Inventory({ me }: { me: any }) {
   const qc = useQueryClient(), isAdmin = me.role === 'admin', [msg, setMsg] = useState('')
   const [modal, setModal] = useState<'' | 'receive' | 'keeper'>(''), [fix, setFix] = useState<any>(null)
-  const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false), [view, setView] = useState<'prod' | 'spare'>('prod')
+  const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false), [view, setView] = useState<'prod' | 'pack'>('prod'), [sub, setSub] = useState<'prod' | 'spare'>('prod')
   const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['lowstock'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }); qc.invalidateQueries({ queryKey: ['spares'] }) }
   // Left / Right handle versions: which locks already have them
   const handles = useQuery({ queryKey: ['inventory', 'handles'], queryFn: async () => ((await supabase.from('products').select('id,handle_of,handle').not('handle_of', 'is', null)).data ?? []) as any[] })
@@ -38,12 +38,14 @@ export default function Inventory({ me }: { me: any }) {
     const left = k.mode === 'once' ? (k.active ? 'for one update' : 'used up') : k.mode === 'until' ? (k.active ? `until ${fmtDate(k.expires_at)}` : 'time is over') : 'until the admin takes it back'
     return `${k.employee_name} updates the stock (${left}).`
   }
-  const toggle = <div className="bar"><button className={view === 'prod' ? 'primary' : ''} onClick={() => setView('prod')}>Products</button><button className={view === 'spare' ? 'primary' : ''} onClick={() => setView('spare')}>Spare parts</button></div>
-  if (view === 'spare') return <section>{toggle}<Spares me={me} /></section>
+  const toggle = <div className="bar"><button className={view === 'prod' ? 'primary' : ''} onClick={() => setView('prod')}>In store</button><button className={view === 'pack' ? 'primary' : ''} onClick={() => setView('pack')}>Packing{queue.data?.length ? ` (${queue.data.length})` : ''}</button></div>
   return (
     <section>
       {toggle}
       {msg && <p className="msg">{msg}</p>}
+      {view === 'prod' && <div className="bar" style={{ margin: '4px 0' }}>{canEdit && sub === 'prod' && <button className="primary go" onClick={() => setModal('receive')}>+ Stock came in</button>}<button className={sub === 'prod' ? 'primary' : ''} onClick={() => setSub('prod')}>Products</button><button className={sub === 'spare' ? 'primary' : ''} onClick={() => setSub('spare')}>Spare parts</button></div>}
+      {view === 'prod' && sub === 'spare' && <Spares me={me} />}
+      {view === 'prod' && sub === 'prod' && <>
       <LowStock detail />
       <div className={canEdit ? 'okbox' : 'card'} style={canEdit ? {} : { margin: 0 }}>
         <div className="row"><span>{canEdit && !isAdmin ? <b>You can update the stock.</b> : keeperLine()}</span>
@@ -51,8 +53,10 @@ export default function Inventory({ me }: { me: any }) {
         {canEdit && !isAdmin && <div className="muted">{keeperLine()}</div>}
         {me.role === 'service_admin' && !canEdit && <div className="muted">You can look at the stock but not change it.</div>}
       </div>
-      {canEdit && <div className="bar" style={{ margin: '10px 0' }}><button className="primary bigbtn go" onClick={() => setModal('receive')}>+ Stock came in</button></div>}
 
+      </>}
+
+      {view === 'pack' && <>
       <h3>Orders to pack and collect ({queue.data?.length ?? 0})</h3>
       {queue.data && !queue.data.length && <p className="empty">Nothing is assigned to you right now.</p>}
       {queue.data?.map((r: any) => { const col = r.state === 'collect'; return (
@@ -74,6 +78,9 @@ export default function Inventory({ me }: { me: any }) {
           <div className="bar"><HandOverButton me={me} kind="packing" id={r.inquiry_id} currentId={r.packer_id} title={`Packing no. ${r.packing_no} · ${r.customer}`} /></div>
         </div>) })}
 
+      </>}
+
+      {view === 'prod' && sub === 'prod' && <>
       <h3>In store</h3>
       {stock.isLoading && <p className="empty">Loading…</p>}
       {stock.data && !stock.data.length && <p className="empty">No products yet.{isAdmin ? ' Add them in Settings → Product catalogue.' : ' Ask the admin to add products.'}</p>}
@@ -93,6 +100,8 @@ export default function Inventory({ me }: { me: any }) {
       <div><button className="link" onClick={() => setShowMoves(!showMoves)}>{showMoves ? 'Hide history' : 'Show stock history'}</button></div>
       {showMoves && moves.data?.map((m: any) => <div className="card" key={m.id}><div className="row"><b>{one(m.products)?.product_name}</b><span className={`pill${m.qty_change < 0 ? ' High' : ''}`}>{m.qty_change > 0 ? '+' : ''}{m.qty_change}</span></div>
         <div className="muted">{m.reason.replace('_', ' ')} · {one(m.employees)?.employee_name ?? 'System'} · {fmtDateTime(m.created_at)}{m.note ? ` · ${m.note}` : ''}</div></div>)}
+
+      </>}
 
       {modal === 'receive' && <ReceiveStock products={(stock.data ?? []).filter((p: any) => !(handles.data ?? []).some((h: any) => h.id === p.product_id))} onClose={() => setModal('')} onDone={refresh} />}
       {modal === 'keeper' && <Keeper me={me} onClose={() => setModal('')} onDone={refresh} />}

@@ -120,7 +120,7 @@ export default function Settings({ me }: { me: any }) {
       {(isAdmin || me.role === 'sales') && <ExcelCard me={me} />}
       {isAdmin ? <>
         <h3>Company settings (admin only)</h3>
-        <Catalogue categoryEditor={<ListEditor title="Categories" hint="Add, rename, reorder (drag) or remove categories. Renaming moves its products along. A category can be removed only when it has no products." values={s.categories} onSave={saveCats} />} />
+        <Catalogue meId={me.id} categoryEditor={<ListEditor title="Categories" hint="Add, rename, reorder (drag) or remove categories. Renaming moves its products along. A category can be removed only when it has no products." values={s.categories} onSave={saveCats} />} />
         <PaymentRules me={me} />
         <PackReminderRule me={me} />
         <CustomerAppContacts />
