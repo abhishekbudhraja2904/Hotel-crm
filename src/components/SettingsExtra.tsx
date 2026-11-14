@@ -12,6 +12,19 @@ export function PackReminderRule({ me }: { me: any }) {
     <label>Remind every (hours)<input type="number" min="0.5" max="72" step="0.5" value={h} onChange={(e) => setH(e.target.value)} /></label>
     {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save</button></div>
 }
+export function TempRule({ me }: { me: any }) {
+  const qc = useQueryClient(), s = useSettings(), [hot, setHot] = useState(String(s.tempHotDays)), [warm, setWarm] = useState(String(s.tempWarmDays)), [msg, setMsg] = useState('')
+  useEffect(() => { setHot(String(s.tempHotDays)); setWarm(String(s.tempWarmDays)) }, [s.tempHotDays, s.tempWarmDays])
+  async function save() {
+    const h = Number(hot), w = Number(warm); if (!(h >= 0 && w > h && w <= 730)) return setMsg('Hot days must be 0 or more, and Warm days must be more than Hot days.')
+    const e1 = await saveSetting('tempHotDays', h, me.id), e2 = e1 ?? await saveSetting('tempWarmDays', w, me.id); setMsg(e2 ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] })
+  }
+  return <div className="card"><h3 style={{ margin: 0 }}>Hot / Warm / Cold inquiries</h3>
+    <p className="muted" style={{ margin: 0 }}>Decided by the date the customer needs the order. Needed within the Hot days (or already late) is 🔥 Hot, within the Warm days is 🌤 Warm, anything later is ❄️ Cold.</p>
+    <label>Hot: needed within (days)<input type="number" min="0" value={hot} onChange={(e) => setHot(e.target.value)} /></label>
+    <label>Warm: needed within (days)<input type="number" min="1" value={warm} onChange={(e) => setWarm(e.target.value)} /></label>
+    {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save</button></div>
+}
 export function PaymentRules({ me }: { me: any }) {
   const qc = useQueryClient(), s = useSettings(), [req, setReq] = useState(s.requireFullPayment), [msg, setMsg] = useState('')
   useEffect(() => { setReq(s.requireFullPayment) }, [s.requireFullPayment])
