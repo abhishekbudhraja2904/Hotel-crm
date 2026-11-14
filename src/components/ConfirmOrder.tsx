@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useWorkload } from '../lib/workload'
 import WhoFor from './WhoFor'
 import { productOptions } from './ProductOptions'
 // Shown when an inquiry is moved to Order Confirmed: ties each line to a catalogue product so the stock can be LOCKED for this customer.
@@ -14,6 +15,7 @@ export default function ConfirmOrder({ inquiry, onConfirm, onClose }: { inquiry:
   const [hand, setHand] = useState<Record<string, { l: string; r: string }>>({})
   const vers = useQuery({ queryKey: ['confirm-handles'], queryFn: async () => ((await supabase.from('products').select('id,handle_of').not('handle_of', 'is', null)).data ?? []) as any[] })
   const stock = useQuery({ queryKey: ['inventory', 'overview'], queryFn: async () => { const { data } = await supabase.rpc('stock_overview'); return (data ?? []) as any[] } })
+  const wl = useWorkload()
   const techs = useQuery({ queryKey: ['employees', 'service'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).eq('role', 'service').order('employee_name')).data ?? [] })
   async function assign() {
     if (!packer) return setErr('Choose who will collect and pack this order.')
@@ -51,7 +53,7 @@ export default function ConfirmOrder({ inquiry, onConfirm, onClose }: { inquiry:
       <div className="okbox"><b>✓ Order confirmed</b></div>
       <WhoFor inquiry={inquiry} />
       {packNo ? <><div className="muted">Packing number for this order</div><div className="pack-big">{packNo}</div><p className="muted" style={{ margin: 0 }}>Write this number on every carton of this order.</p></> : <p className="muted">The packing number will show on the inquiry.</p>}
-      <label>Who will collect and pack this order?<select value={packer} onChange={(e) => setPacker(e.target.value)}><option value="">Choose a service employee…</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{t.employee_name}</option>)}</select></label>
+      <label>Who will collect and pack this order?<select value={packer} onChange={(e) => setPacker(e.target.value)}><option value="">Choose a service employee…</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{wl(t.id, t.employee_name)}</option>)}</select></label>
       {packerSaved ? <div className="okbox">✓ Assigned to {packerSaved}. It shows on their screen when you mark the order ready.</div> : <button onClick={assign}>Assign packing</button>}
       {err && <p className="msg">{err}</p>}
       <button className="primary bigbtn" onClick={onClose}>Done</button>

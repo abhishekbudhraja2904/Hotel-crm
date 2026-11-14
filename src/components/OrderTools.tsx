@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useWorkload } from '../lib/workload'
 import ItemsEditor, { ItemRow, newRow, rowsFromItems, useCatalogue } from './ItemsEditor'
 const isLockCat = (c?: string) => /^RFID Hotel Lock/i.test(c ?? '')
 // On every order card in Inventory (admin / sales): edit the items, choose Left / Right for locks, and assign packing.
 export default function OrderTools({ r, me }: { r: any; me: any }) {
   const qc = useQueryClient(), [modal, setModal] = useState<'' | 'items' | 'hand'>(''), [msg, setMsg] = useState('')
+  const wl = useWorkload()
   const techs = useQuery({ queryKey: ['employees', 'service'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).eq('role', 'service').order('employee_name')).data ?? [] })
   const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
   if (!['admin', 'sales'].includes(me.role)) return null
   async function assign(id: string) { const { error } = await supabase.rpc('assign_packer', { p_inq: r.inquiry_id, p_emp: id || null }); setMsg(error ? error.message : 'Packing assigned.'); refresh() }
   return <div style={{ display: 'grid', gap: 8 }} onClick={(e) => e.stopPropagation()}>
     <div className="bar"><button onClick={() => setModal('items')}>Edit items</button><button onClick={() => setModal('hand')}>Left / Right</button></div>
-    <label>Packing assigned to<select value={r.packer_id ?? ''} onChange={(e) => assign(e.target.value)}><option value="">Not assigned</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{t.employee_name}</option>)}</select></label>
+    <label>Packing assigned to<select value={r.packer_id ?? ''} onChange={(e) => assign(e.target.value)}><option value="">Not assigned</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{wl(t.id, t.employee_name)}</option>)}</select></label>
     {msg && <p className="msg" style={{ margin: 0 }}>{msg}</p>}
     {modal === 'items' && <EditItems id={r.inquiry_id} onClose={() => setModal('')} onDone={refresh} />}
     {modal === 'hand' && <Handles id={r.inquiry_id} onClose={() => setModal('')} onDone={refresh} />}

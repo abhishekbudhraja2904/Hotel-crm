@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useWorkload } from '../lib/workload'
 import { fmtDate, fmtDateTime } from '../lib/dates'
 import WhoFor from './WhoFor'
 import { useSettings } from '../lib/settings'
@@ -13,6 +14,7 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
   const parts = useQuery({ queryKey: ['dispatch', 'parts', inquiry.id], queryFn: async () => {
     const { data, error } = await supabase.from('dispatch_parts').select('id,part_no,status,ready_at,sent_at,docket_no,courier_name,docket_at,dispatch_part_items(id,product_name,quantity,unit)').eq('inquiry_id', inquiry.id).order('part_no'); if (error) throw error; return data as any[] } })
   const pk = useQuery({ queryKey: ['dispatch', 'pk', inquiry.id], queryFn: async () => (await supabase.from('inquiries').select('packing_no,packing_year,packer_id,packed_at,pack_remind_hours').eq('id', inquiry.id).maybeSingle()).data })
+  const wl = useWorkload()
   const techs = useQuery({ queryKey: ['employees', 'service'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).eq('role', 'service').order('employee_name')).data ?? [] })
   const settings = useSettings(), [rem2, setRem2] = useState<string | null>(null)
   async function saveRemind() { const h = Number(rem2 ?? pk.data?.pack_remind_hours ?? settings.packReminderHours); const { error } = await supabase.rpc('set_pack_reminder', { p_inq: inquiry.id, p_hours: h }); setMsg(error ? error.message : 'Reminder gap saved.'); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
@@ -49,7 +51,7 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
       <div className="row"><h3 style={{ margin: 0 }}>Dispatch</h3><button className="link" onClick={onClose}>Close</button></div>
       <WhoFor inquiry={inquiry} />
       {pk.data?.packing_no ? <div><div className="muted">Packing number for this whole order</div><div className="pack-big">{pk.data.packing_no}</div></div> : <p className="muted">No packing number yet.</p>}
-      {canAct && <label>Packing assigned to<select value={pk.data?.packer_id ?? ''} onChange={(e) => setPacker(e.target.value)}><option value="">Not assigned</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{t.employee_name}</option>)}</select></label>}
+      {canAct && <label>Packing assigned to<select value={pk.data?.packer_id ?? ''} onChange={(e) => setPacker(e.target.value)}><option value="">Not assigned</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{wl(t.id, t.employee_name)}</option>)}</select></label>}
       {canAct && pk.data?.packer_id && (pk.data.packed_at
         ? <div className="okbox">Packing done · {fmtDateTime(pk.data.packed_at)}</div>
         : <div className="bar"><label style={{ flex: 1 }}>Remind every (hours, until packing is done)<input type="number" min="0.5" max="72" step="0.5" value={rem2 ?? String(pk.data.pack_remind_hours ?? settings.packReminderHours)} onChange={(e) => setRem2(e.target.value)} /></label><button onClick={saveRemind}>Save</button></div>)}
