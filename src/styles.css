@@ -188,3 +188,6 @@ nav .a-quo{--ac:#6B4E9B}
 .itemrow{margin:0}.pack-big{font-family:'Saira Stencil One','IBM Plex Sans',sans-serif;font-size:56px;line-height:1;color:var(--forest)}
 nav .a-svc{--ac:#2F6B5A}
 nav .a-cust{--ac:#1E5A8C}
+
+.tapx{cursor:pointer}.tapx:hover{background:rgba(0,0,0,.03)}
+a:not([href]){cursor:pointer;text-decoration:underline}

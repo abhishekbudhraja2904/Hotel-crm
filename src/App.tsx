@@ -24,6 +24,7 @@ import { ClockGate, LockBar } from './components/ClockGate'
 import { maybeAutoDownload } from './lib/excel'
 
 function Shell({ session }: { session: any }) {
+  const [inqFilter, setInqFilter] = useState('')
   const [tab, setTab] = useState<'dash' | 'inq' | 'pipe' | 'fu' | 'team' | 'time' | 'inv' | 'set' | 'after' | 'ins' | 'quo' | 'svc' | 'cust'>('dash')
   const [menu, setMenu] = useState(false), [unlocked, setUnlocked] = useState(false)
   const conn = useRealtime()
@@ -67,8 +68,8 @@ function Shell({ session }: { session: any }) {
         <button className="link" onClick={signOut}>Sign out</button></header>
       {!locked && <NotifyPopup />}
       {locked && <LockBar status={cs.data} />}
-      <main className={locked ? 'locked' : ''}>{cur === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{cur === 'dash' ? <Dashboard me={me} /> : cur === 'inq' ? <Inquiries me={me} startFu={tab === 'fu'} /> : cur === 'pipe' ? <Pipeline /> : cur === 'fu' ? <Followups me={me} /> : cur === 'time' ? <Attendance me={me} /> : cur === 'inv' ? <Inventory me={me} /> : cur === 'set' ? <Settings me={me} /> : cur === 'after' ? <AfterSales me={me} /> : cur === 'ins' ? <Insights /> : cur === 'quo' ? <QuoteLibrary /> : cur === 'svc' ? <ServiceTeam /> : cur === 'cust' ? <CustomerAppAdmin me={me} /> : <Team />}</main>
-      {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{items.map(([k, l]) => <button key={k} className={`a-${k}${cur === k ? ' on' : ''}`} onClick={() => { setTab(k as any); setMenu(false) }}><span className="ico"><Icon name={k} /></span>{l}</button>)}</nav>
+      <main className={locked ? 'locked' : ''}>{cur === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{cur === 'dash' ? <Dashboard me={me} go={(t: string, f?: string) => { setInqFilter(f ?? ''); setTab(t as any) }} /> : cur === 'inq' ? <div key={inqFilter}><Inquiries me={me} startFu={tab === 'fu'} startFilter={inqFilter} /></div> : cur === 'pipe' ? <Pipeline /> : cur === 'fu' ? <Followups me={me} /> : cur === 'time' ? <Attendance me={me} /> : cur === 'inv' ? <div key={inqFilter}><Inventory me={me} start={inqFilter} /></div> : cur === 'set' ? <Settings me={me} /> : cur === 'after' ? <div key={inqFilter}><AfterSales me={me} start={inqFilter} /></div> : cur === 'ins' ? <Insights /> : cur === 'quo' ? <QuoteLibrary /> : cur === 'svc' ? <ServiceTeam /> : cur === 'cust' ? <CustomerAppAdmin me={me} /> : <Team />}</main>
+      {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{items.map(([k, l]) => <button key={k} className={`a-${k}${cur === k ? ' on' : ''}`} onClick={() => { setInqFilter(''); setTab(k as any); setMenu(false) }}><span className="ico"><Icon name={k} /></span>{l}</button>)}</nav>
     </>
   )
 }

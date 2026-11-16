@@ -620,6 +620,27 @@ const HI: Record<string, string> = {
 "Cancel packing": "पैकिंग रद्द करें",
 "Software": "सॉफ्टवेयर",
 "Technical": "टेक्निकल",
-"Not acknowledged": "स्वीकार नहीं किया"
+"Not acknowledged": "स्वीकार नहीं किया",
+"Needs attention now": "अभी ध्यान चाहिए",
+"Inquiries not attended": "जिन इन्क्वायरी पर ध्यान नहीं गया",
+"Follow-ups overdue": "फॉलो-अप देर से",
+"Work not acknowledged": "काम स्वीकार नहीं किया",
+"Packing late": "पैकिंग में देरी",
+"Payment pending, dispatched": "भेज दिया, पेमेंट बाकी",
+"Tickets open over 3 days": "3 दिन से खुले टिकट",
+"Orders short of parts": "पार्ट्स की कमी वाले ऑर्डर",
+"Low stock items": "कम स्टॉक वाले आइटम",
+"Sales": "सेल्स",
+"Quotations sent, waiting": "कोटेशन भेजे, जवाब का इंतज़ार",
+"Orders and operations": "ऑर्डर और काम",
+"To pack": "पैक करने हैं",
+"Dispatched this week": "इस हफ्ते भेजे गए",
+"Installations scheduled": "तय इंस्टॉलेशन",
+"Open tickets": "खुले टिकट",
+"Repair boxes open": "खुले रिपेयर बॉक्स",
+"Fixed this week": "इस हफ्ते ठीक हुए",
+"Team: who is doing what": "टीम: कौन क्या कर रहा है",
+"Live activity": "ताज़ा गतिविधि",
+"Not in": "आए नहीं"
 }
 export default HI

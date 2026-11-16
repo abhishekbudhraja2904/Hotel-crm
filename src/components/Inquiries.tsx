@@ -23,19 +23,19 @@ import CustomerApp from './CustomerApp'
 import EditCustomer from './EditCustomer'
 import { fmtDate, fmtDateTime } from '../lib/dates'
 
-export default function Inquiries({ me, startFu = false }: { me: any; startFu?: boolean }) {
+export default function Inquiries({ me, startFu = false, startFilter = '' }: { me: any; startFu?: boolean; startFilter?: string }) {
   const qc = useQueryClient()
   const { stages: STAGES } = useSettings()
   const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [appFor, setAppFor] = useState<any>(null), [custFor, setCustFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null), [quoFor, setQuoFor] = useState<any>(null), [quoFormFor, setQuoFormFor] = useState<any>(null), [editFor, setEditFor] = useState<any>(null), [dispFor, setDispFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
-  const [view, setView] = useState<'list' | 'old'>('list'), [reorderFor, setReorderFor] = useState<any>(null)
-  const [emp, setEmp] = useState(''), [tf, setTf] = useState(''), [att, setAtt] = useState(''), [fuF, setFuF] = useState(startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), cfg = useSettings()
+  const [view, setView] = useState<'list' | 'old'>(startFilter === 'old' ? 'old' : 'list'), [reorderFor, setReorderFor] = useState<any>(null)
+  const [emp, setEmp] = useState(startFilter.startsWith('emp:') ? startFilter.slice(4) : ''), [tf, setTf] = useState(startFilter.startsWith('temp:') ? startFilter.slice(5) : ''), [att, setAtt] = useState(startFilter === 'notatt' ? '1' : ''), [fuF, setFuF] = useState(['late', 'due', 'today', 'later', 'none'].includes(startFilter) ? startFilter : startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), cfg = useSettings()
   async function setNeeded(r: any, v: string) { const { error } = await supabase.from('inquiries').update({ needed_by: v || null }).eq('id', r.id); if (error) setMsg(error.message); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   const pendFu = useQuery({ queryKey: ['followups', 'pending'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('id,inquiry_id,assigned_to,followup_type,scheduled_at,notes,updated_at').eq('status', 'Pending').order('scheduled_at').limit(1000)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
   const fuState = (id: string) => { const f = pendFu.data?.get(id); if (!f) return 'none'; const t = +new Date(f.scheduled_at); return t < Date.now() ? 'late' : t <= new Date().setHours(23, 59, 59, 999) ? 'today' : 'later' }
   const lastFu = useQuery({ queryKey: ['followups', 'last'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('inquiry_id,outcome,completed_at').eq('status', 'Completed').order('completed_at', { ascending: false }).limit(500)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
-  const [q, setQ] = useState(''), [stage, setStage] = useState(''), [open, setOpen] = useState(false), [msg, setMsg] = useState('')
+  const [q, setQ] = useState(startFilter.startsWith('q:') ? startFilter.slice(2) : ''), [stage, setStage] = useState(startFilter.startsWith('stage:') ? startFilter.slice(6) : ''), [open, setOpen] = useState(false), [msg, setMsg] = useState('')
   const { data = [], isLoading, error } = useQuery({
     queryKey: ['inquiries'],
     queryFn: async () => {

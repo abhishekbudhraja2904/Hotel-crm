@@ -14,10 +14,10 @@ import { AgeTag, ageLook } from '../lib/age'
 import { HandOverButton } from './Reassign'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const n = (x: any) => Number(x ?? 0).toLocaleString('en-IN')
-export default function Inventory({ me }: { me: any }) {
+export default function Inventory({ me, start = '' }: { me: any; start?: string }) {
   const qc = useQueryClient(), isAdmin = me.role === 'admin', [msg, setMsg] = useState('')
   const [modal, setModal] = useState<'' | 'receive' | 'keeper'>(''), [fix, setFix] = useState<any>(null), [recvId, setRecvId] = useState('')
-  const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false), [view, setView] = useState<'prod' | 'pack'>('prod'), [sub, setSub] = useState<'prod' | 'spare'>('prod')
+  const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false), [view, setView] = useState<'prod' | 'pack'>(start === 'pack' ? 'pack' : 'prod'), [sub, setSub] = useState<'prod' | 'spare'>('prod')
   const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['lowstock'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }); qc.invalidateQueries({ queryKey: ['spares'] }) }
   // Left / Right handle versions: which locks already have them
   const handles = useQuery({ queryKey: ['inventory', 'handles'], queryFn: async () => ((await supabase.from('products').select('id,handle_of,handle').not('handle_of', 'is', null)).data ?? []) as any[] })

@@ -2,9 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useSettings, Tile } from '../lib/settings'
 import LowStock from './LowStock'
+import Overview from './Overview'
 import InquiryBar, { useMoney } from './Progress'
 import { fmtDate, isoDate } from '../lib/dates'
-export default function Dashboard({ me }: { me?: any }) {
+export default function Dashboard({ me, go }: { me?: any; go?: (tab: string, filter?: string) => void }) {
   const { tiles, stages } = useSettings(), money = useMoney()
   const canInv = useQuery({ queryKey: ['inventory', 'can'], enabled: !!me?.active, queryFn: async () => !!(await supabase.rpc('can_update_inventory')).data })
   const latest = useQuery({ queryKey: ['inquiries', 'latest'], queryFn: async () => {
@@ -40,10 +41,11 @@ export default function Dashboard({ me }: { me?: any }) {
   for (const r of lost) { const k = r.lost_reason || 'Not recorded'; counts[k] = (counts[k] ?? 0) + 1 }
   const rows = Object.entries(counts).sort((a, b) => b[1] - a[1])
   return <>
+    {(me?.role === 'admin' || me?.role === 'sales') && go && <Overview me={me} go={go} />}
     <LowStock detail={isAdmin || !!canInv.data} />
     <div className="stats">{cards.map(([k, v]) => <div className="stat" key={k}><b>{v}</b><span className="muted">{k}</span></div>)}</div>
     {isAdmin && pend.data && pend.data.length > 0 && (() => { const today = isoDate()
-      return <div className="card" style={{ borderLeftColor: '#8A6F52' }}><div className="row"><b>Payment pending</b><b>{pend.data.length}</b></div>
+      return <div id="pay-pending" className="card" style={{ borderLeftColor: '#8A6F52' }}><div className="row"><b>Payment pending</b><b>{pend.data.length}</b></div>
         <div className="muted">Confirmed orders that are not paid in full.</div>
         {pend.data.slice(0, 10).map(({ r, status, due, later }) => <div className="row" key={r.id}><div><div>{r.customers?.customer_name} <span className="muted">· {r.inquiry_number}</span></div>
           <div className="muted">{status}{later ? ' · payment later' : ''}{due ? ` · due ${fmtDate(due)}` : ''}</div>

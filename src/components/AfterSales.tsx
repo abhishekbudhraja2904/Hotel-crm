@@ -15,11 +15,11 @@ import { CustomerTicketBar } from './CustomerApp'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const today = () => isoDate()
 const inWarranty = (u?: string | null) => !!u && u >= today()
-export default function AfterSales({ me }: { me: any }) {
-  const qc = useQueryClient(), [tab, setTab] = useState<'inst' | 'tix' | 'rep' | 'mine' | 'find'>('inst'), [msg, setMsg] = useState('')
+export default function AfterSales({ me, start = '' }: { me: any; start?: string }) {
+  const qc = useQueryClient(), [tab, setTab] = useState<'inst' | 'tix' | 'rep' | 'mine' | 'find'>(start.startsWith('tix') ? 'tix' : start === 'rep' ? 'rep' : 'inst'), [msg, setMsg] = useState('')
   const [editJob, setEditJob] = useState<any>(null), [notesT, setNotesT] = useState<any>(null), [boxFor, setBoxFor] = useState<any>(null), [upd, setUpd] = useState<any>(null), [form, setForm] = useState<'' | 'inst' | 'tix'>(''), [serialFor, setSerialFor] = useState<any>(null), [openId, setOpenId] = useState('')
   const canWrite = me.role === 'admin' || me.role === 'service' || me.role === 'sales' // may record installations and add serial numbers
-  const desk = useDesk(), isDesk = !!desk.data?.me, [kindF, setKindF] = useState<'' | 'Software' | 'Technical' | 'mine'>('')
+  const desk = useDesk(), isDesk = !!desk.data?.me, [kindF, setKindF] = useState<'' | 'Software' | 'Technical' | 'mine'>((start === 'tix:Software' ? 'Software' : start === 'tix:Technical' ? 'Technical' : '') as any)
   const canTix = me.role === 'admin' || me.role === 'service' || isDesk // may change a ticket's status
   const refresh = () => qc.invalidateQueries({ queryKey: ['aftersales'] })
   const inst = useQuery({ queryKey: ['aftersales', 'inst'], queryFn: async () => { const { data, error } = await supabase.from('installations').select('id,status,technician_id,created_at,job_updates(id,done,note,proof_path,created_at,update_date),site_name,what,installed_on,warranty_until,warranty_months,notes,inquiry_id,employees:technician_id(employee_name),giver:employees!created_by(employee_name),inquiries(customers(customer_name,city)),serials(id,serial_no,room,packing_no)').order('installed_on', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
