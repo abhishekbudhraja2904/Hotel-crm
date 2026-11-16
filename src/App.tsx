@@ -57,8 +57,8 @@ function Shell({ session }: { session: any }) {
     ? [['after', 'Jobs'], ['inv', 'Inventory'], ['time', 'Clock'], ['set', 'Settings']]
     : me.role === 'service_admin'
     ? [['svc', 'Service team'], ['after', 'Give work'], ['inv', 'Inventory'], ['time', 'Clock'], ['set', 'Settings']]
-    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['quo', 'Quotations'], ['pipe', 'Pipeline'], ['fu', 'Follow-ups'], ['after', 'After-sales'], ...(me.role === 'admin' ? [['svc', 'Service team']] : []), ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['ins', 'Insights'], ['team', 'Team'], ['cust', 'Customer app']] : canInv.data ? [['inv', 'Inventory']] : []), ['set', 'Settings']]
-  const cur = items.some(([k]) => k === tab) ? tab : items[0][0] // a technician opens straight on Jobs
+    : [['dash', 'Dashboard'], ['inq', 'Inquiries'], ['quo', 'Quotations'], ['pipe', 'Pipeline'], ['after', 'After-sales'], ...(me.role === 'admin' ? [['svc', 'Service team']] : []), ['time', 'Clock'], ...(me.role === 'admin' ? [['inv', 'Inventory'], ['ins', 'Insights'], ['team', 'Team'], ['cust', 'Customer app']] : canInv.data ? [['inv', 'Inventory']] : []), ['set', 'Settings']]
+  const cur = items.some(([k]) => k === (tab === 'fu' ? 'inq' : tab)) ? (tab === 'fu' ? 'inq' : tab) : items[0][0] // a technician opens straight on Jobs
   if (manual && cs.data && !cs.data.clocked_in && !unlocked) return <ClockGate me={me} status={cs.data} />
   const locked = manual && cs.data && !cs.data.clocked_in
   return (
@@ -67,7 +67,7 @@ function Shell({ session }: { session: any }) {
         <button className="link" onClick={signOut}>Sign out</button></header>
       {!locked && <NotifyPopup />}
       {locked && <LockBar status={cs.data} />}
-      <main className={locked ? 'locked' : ''}>{cur === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{cur === 'dash' ? <Dashboard me={me} /> : cur === 'inq' ? <Inquiries me={me} /> : cur === 'pipe' ? <Pipeline /> : cur === 'fu' ? <Followups me={me} /> : cur === 'time' ? <Attendance me={me} /> : cur === 'inv' ? <Inventory me={me} /> : cur === 'set' ? <Settings me={me} /> : cur === 'after' ? <AfterSales me={me} /> : cur === 'ins' ? <Insights /> : cur === 'quo' ? <QuoteLibrary /> : cur === 'svc' ? <ServiceTeam /> : cur === 'cust' ? <CustomerAppAdmin me={me} /> : <Team />}</main>
+      <main className={locked ? 'locked' : ''}>{cur === 'dash' && <div className="hello"><h2>{new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {me.employee_name.split(' ')[0]}.</h2><p>Let’s move things forward.</p></div>}{cur === 'dash' ? <Dashboard me={me} /> : cur === 'inq' ? <Inquiries me={me} startFu={tab === 'fu'} /> : cur === 'pipe' ? <Pipeline /> : cur === 'fu' ? <Followups me={me} /> : cur === 'time' ? <Attendance me={me} /> : cur === 'inv' ? <Inventory me={me} /> : cur === 'set' ? <Settings me={me} /> : cur === 'after' ? <AfterSales me={me} /> : cur === 'ins' ? <Insights /> : cur === 'quo' ? <QuoteLibrary /> : cur === 'svc' ? <ServiceTeam /> : cur === 'cust' ? <CustomerAppAdmin me={me} /> : <Team />}</main>
       {menu && <div className="scrim" onClick={() => setMenu(false)} />}<nav className={menu ? 'open' : ''}>{items.map(([k, l]) => <button key={k} className={`a-${k}${cur === k ? ' on' : ''}`} onClick={() => { setTab(k as any); setMenu(false) }}><span className="ico"><Icon name={k} /></span>{l}</button>)}</nav>
     </>
   )

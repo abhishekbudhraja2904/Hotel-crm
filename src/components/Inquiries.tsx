@@ -18,19 +18,22 @@ import InquiryBar, { useMoney } from './Progress'
 import ItemsEditor, { ItemRow, newRow, rowsFromItems, useCatalogue } from './ItemsEditor'
 import Dispatch from './Dispatch'
 import Notes from './Notes'
+import FollowupInline from './FollowupInline'
 import CustomerApp from './CustomerApp'
 import EditCustomer from './EditCustomer'
 import { fmtDate, fmtDateTime } from '../lib/dates'
 
-export default function Inquiries({ me }: { me: any }) {
+export default function Inquiries({ me, startFu = false }: { me: any; startFu?: boolean }) {
   const qc = useQueryClient()
   const { stages: STAGES } = useSettings()
   const [fuFor, setFuFor] = useState<any>(null), [lostFor, setLostFor] = useState<any>(null), [payFor, setPayFor] = useState<any>(null), [appFor, setAppFor] = useState<any>(null), [custFor, setCustFor] = useState<any>(null), [confirmFor, setConfirmFor] = useState<any>(null), [quoFor, setQuoFor] = useState<any>(null), [quoFormFor, setQuoFormFor] = useState<any>(null), [editFor, setEditFor] = useState<any>(null), [dispFor, setDispFor] = useState<any>(null)
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const [view, setView] = useState<'list' | 'old'>('list'), [reorderFor, setReorderFor] = useState<any>(null)
-  const [emp, setEmp] = useState(''), [tf, setTf] = useState(''), [att, setAtt] = useState(''), [notesFor, setNotesFor] = useState<any>(null), cfg = useSettings()
+  const [emp, setEmp] = useState(''), [tf, setTf] = useState(''), [att, setAtt] = useState(''), [fuF, setFuF] = useState(startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), cfg = useSettings()
   async function setNeeded(r: any, v: string) { const { error } = await supabase.from('inquiries').update({ needed_by: v || null }).eq('id', r.id); if (error) setMsg(error.message); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
+  const pendFu = useQuery({ queryKey: ['followups', 'pending'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('id,inquiry_id,assigned_to,followup_type,scheduled_at,notes,updated_at').eq('status', 'Pending').order('scheduled_at').limit(1000)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
+  const fuState = (id: string) => { const f = pendFu.data?.get(id); if (!f) return 'none'; const t = +new Date(f.scheduled_at); return t < Date.now() ? 'late' : t <= new Date().setHours(23, 59, 59, 999) ? 'today' : 'later' }
   const lastFu = useQuery({ queryKey: ['followups', 'last'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('inquiry_id,outcome,completed_at').eq('status', 'Completed').order('completed_at', { ascending: false }).limit(500)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
   const [q, setQ] = useState(''), [stage, setStage] = useState(''), [open, setOpen] = useState(false), [msg, setMsg] = useState('')
   const { data = [], isLoading, error } = useQuery({
@@ -45,7 +48,7 @@ export default function Inquiries({ me }: { me: any }) {
   })
   const ATT_HOURS = 4
   const notAtt = (r: any) => !r.attended_at && !['Order Confirmed', 'Lost'].includes(r.sales_stage) && Date.now() - new Date(r.created_at).getTime() > ATT_HOURS * 3600000
-  const rows = data.filter((r: any) => (!att || notAtt(r)) && (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
+  const rows = data.filter((r: any) => (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
     JSON.stringify(r).toLowerCase().includes(q.toLowerCase()))
 
   const money = useMoney()
@@ -98,6 +101,7 @@ export default function Inquiries({ me }: { me: any }) {
       <div className="bar">
         <input placeholder="Search inquiries…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={stage} onChange={(e) => setStage(e.target.value)}><option value="">All stages</option>{STAGES.map((s) => <option key={s}>{s}</option>)}</select>
+        <select value={fuF} onChange={(e) => setFuF(e.target.value)}><option value="">All follow-ups</option><option value="due">Due today + overdue</option><option value="late">Overdue</option><option value="today">Due today</option><option value="later">Upcoming</option><option value="none">No follow-up set</option></select>
         <select value={tf} onChange={(e) => setTf(e.target.value)}><option value="">Hot / Warm / Cold</option><option value="Hot">🔥 Hot</option><option value="Warm">🌤 Warm</option><option value="Cold">❄️ Cold</option><option value="None">No date set</option></select>
         {isAdmin && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 14, color: 'inherit' }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={!!att} onChange={(e) => setAtt(e.target.checked ? '1' : '')} />Not attended</label>}
         {isAdmin && <select value={emp} onChange={(e) => setEmp(e.target.value)}><option value="">All staff</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select>}
@@ -109,14 +113,23 @@ export default function Inquiries({ me }: { me: any }) {
       {!isLoading && !rows.length && <p className="empty">No inquiries yet.</p>}
       {rows.map((r: any) => (
         <div className="card" key={r.id}>
-          <div className="row"><b>{r.inquiry_number}{isAdmin && notAtt(r) && <span className="pill" style={{ background: '#fde2e2', color: '#b42318', marginLeft: 8 }}>Not attended yet</span>}</b><span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{!['Order Confirmed', 'Lost'].includes(r.sales_stage) && (() => { const t = tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays), L = TEMP_LOOK[t]; return L ? <span className="pill" style={{ background: L.bg, color: L.fg }}>{L.icon} {t}</span> : null })()}<span className={`pill ${r.priority}`}>{r.priority}</span></span></div>
-          <div>{r.customers?.customer_name} {(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setCustFor(r)}>✎ Edit</button>} {r.customers?.phone_number && <a href={`tel:${r.customers.phone_number}`}>📞 {r.customers.phone_number}</a>}</div>
-          <div className="muted">{r.inquiry_items?.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || r.inquiry_title || 'No product yet'}</div>
-          <div className="muted">Assigned: {r.assigned?.employee_name ?? 'Unassigned'} · Next follow-up: {r.next_followup_at ? fmtDateTime(r.next_followup_at) : '—'}</div>
-          {!['Order Confirmed', 'Lost'].includes(r.sales_stage) && <div className="row" style={{ justifyContent: 'flex-start', gap: 8 }} onClick={(e) => e.stopPropagation()}><span className="muted">Customer needs it by</span><DateField value={r.needed_by ?? ''} onChange={(v) => setNeeded(r, v)} ariaLabel="Date the customer needs the order" />{r.needed_by && <button className="link" onClick={() => setNeeded(r, '')}>clear</button>}</div>}
-          {lastFu.data?.get(r.id) && <div className="muted">Last follow-up: <b>{lastFu.data.get(r.id).outcome ?? 'Done'}</b> · {fmtDateTime(lastFu.data.get(r.id).completed_at)}</div>}
+          <div className="row"><b>{r.inquiry_number}</b><span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>{isAdmin && notAtt(r) && <span className="pill" style={{ background: '#fde2e2', color: '#b42318' }}>Not attended yet</span>}{!['Order Confirmed', 'Lost'].includes(r.sales_stage) && (() => { const t = tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays), L = TEMP_LOOK[t]; return L ? <span className="pill" style={{ background: L.bg, color: L.fg }}>{L.icon} {t}</span> : null })()}<span className={`pill ${r.priority}`}>{r.priority}</span></span></div>
+          <div>
+            <div className="row" style={{ flexWrap: 'nowrap' }}><b style={{ fontSize: 17 }}>{r.customers?.customer_name}</b>{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setCustFor(r)}>✎ Edit</button>}</div>
+            {r.customers?.phone_number && <a href={`tel:${r.customers.phone_number}`} style={{ fontSize: 14 }}>📞 {r.customers.phone_number}</a>}
+            <div className="muted" style={{ marginTop: 2 }}>{r.inquiry_items?.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || r.inquiry_title || 'No product yet'}</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: !['Order Confirmed', 'Lost'].includes(r.sales_stage) ? '1fr 1fr' : '1fr', gap: 10, borderTop: '1px solid #e6e3d8', paddingTop: 8 }} onClick={(e) => e.stopPropagation()}>
+            <div><div className="muted" style={{ fontSize: 12 }}>Assigned to</div><b>{r.assigned?.employee_name ?? 'Unassigned'}</b></div>
+            {!['Order Confirmed', 'Lost'].includes(r.sales_stage) && <div><div className="muted" style={{ fontSize: 12 }}>Customer needs it by</div><div style={{ display: 'flex', gap: 6, alignItems: 'center' }}><DateField value={r.needed_by ?? ''} onChange={(v) => setNeeded(r, v)} ariaLabel="Date the customer needs the order" />{r.needed_by && <button className="link" onClick={() => setNeeded(r, '')}>clear</button>}</div></div>}
+          </div>
+          {pendFu.data?.get(r.id)
+            ? <FollowupInline me={me} inquiry={r} f={pendFu.data.get(r.id)} last={lastFu.data?.get(r.id)} />
+            : !['Order Confirmed', 'Lost'].includes(r.sales_stage) && <div style={{ border: '1px dashed #c9c5b5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <div><b>No follow-up scheduled</b>{lastFu.data?.get(r.id) && <div className="muted">Last: <b>{lastFu.data.get(r.id).outcome ?? 'Done'}</b> · {fmtDateTime(lastFu.data.get(r.id).completed_at)}</div>}</div>
+                <button className="primary" onClick={() => setFuFor(r)}>+ Schedule</button></div>}
           <InquiryBar r={r} stages={STAGES} money={money.data} />
-          {r.sales_stage === 'Order Confirmed' && (() => { const m = money.data?.[r.id]; return <div className="row"><div className="muted">{r.packing_no ? <>Packing no. <b>{r.packing_no}</b></> : null}{m?.due && m.status !== 'Paid in full' ? ` · payment due ${fmtDate(m.due)}` : ''}</div><span style={{ display: 'flex', gap: 10 }}><button className="link" onClick={() => setPayFor(r)}>Payments</button>{me.role !== 'service' && <button className="link" onClick={() => setDispFor(r)}>Dispatch</button>}</span></div> })()}
+          {r.sales_stage === 'Order Confirmed' && (() => { const m = money.data?.[r.id]; return <div className="row"><div className="muted">{r.packing_no ? <>Packing no. <b>{r.packing_no}</b></> : null}{m?.due && m.status !== 'Paid in full' ? ` · payment due ${fmtDate(m.due)}` : ''}</div><span style={{ display: 'flex', gap: 8 }}><button onClick={() => setPayFor(r)}>Payments</button>{me.role !== 'service' && <button onClick={() => setDispFor(r)}>Dispatch</button>}</span></div> })()}
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
           <div style={{ display: 'grid', gap: 8 }}>
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
