@@ -52,11 +52,11 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
       <WhoFor inquiry={inquiry} />
       {pk.data?.packing_no ? <div><div className="muted">Packing number for this whole order</div><div className="pack-big">{pk.data.packing_no}</div></div> : <p className="muted">No packing number yet.</p>}
       {canAct && <label>Packing assigned to<select value={pk.data?.packer_id ?? ''} onChange={(e) => setPacker(e.target.value)}><option value="">Not assigned</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{wl(t.id, t.employee_name)}</option>)}</select></label>}
+      {msg && <div className="warnbox" style={{ fontWeight: 600 }}>{msg}{/Left \/ Right/.test(msg) && <div className="muted" style={{ fontWeight: 400 }}>Open Inventory → Packing, find this order and use “Left / Right” to say how many of each handle, then assign packing again.</div>}</div>}
       {canAct && pk.data?.packer_id && (pk.data.packed_at
         ? <div className="okbox">Packing done · {fmtDateTime(pk.data.packed_at)}</div>
         : <div className="bar"><label style={{ flex: 1 }}>Remind every (hours, until packing is done)<input type="number" min="0.5" max="72" step="0.5" value={rem2 ?? String(pk.data.pack_remind_hours ?? settings.packReminderHours)} onChange={(e) => setRem2(e.target.value)} /></label><button onClick={saveRemind}>Save</button></div>)}
       {canAct && (pk.data?.packer_id || (parts.data ?? []).some((p: any) => p.status === 'ready')) && <div><button className="link" style={{ color: '#9b3b30' }} onClick={cancelPacking}>Cancel packing (made a mistake)</button></div>}
-      {msg && <p className="msg">{msg}</p>}
       {bal.isLoading && <p className="empty">Loading…</p>}
       {bal.data && !bal.data.length && <p className="warnbox">This order has no catalogue products, so nothing can be dispatched from here. Use "Edit items" (admin) to add them.</p>}
       {bal.data && bal.data.length > 0 && <>

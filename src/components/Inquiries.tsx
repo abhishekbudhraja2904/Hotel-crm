@@ -219,20 +219,45 @@ function NewInquiry({ me, emps, onClose }: { me: any; emps: any[]; onClose: () =
 // Change the products on an existing inquiry (sales until the order is confirmed; the admin any time).
 function EditItems({ inquiry, onClose }: { inquiry: any; onClose: () => void }) {
   const qc = useQueryClient(), cat = useCatalogue(), [rows, setRows] = useState<ItemRow[] | null>(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  // Lines that must survive an edit untouched: Left/Right handle lines (kept per row while quantity and product are unchanged) and items whose product is no longer in the catalogue.
+  const [keep, setKeep] = useState<Record<number, { base: string; total: number; lines: any[] }>>({}), [frozen, setFrozen] = useState<any[]>([]), [orphans, setOrphans] = useState<any[]>([])
   const items = useQuery({ queryKey: ['edit-items', inquiry.id], queryFn: async () => {
-    const { data, error } = await supabase.from('inquiry_items').select('id,product_id,quantity,mortis_spare_id').eq('inquiry_id', inquiry.id).order('created_at'); if (error) throw error; return data as any[] } })
-  if (cat.data && items.data && rows === null) { const r = rowsFromItems(items.data, cat.data); setRows(r.length ? r : [newRow()]) }
+    const { data, error } = await supabase.from('inquiry_items').select('id,product_id,quantity,mortis_spare_id,product_name_snapshot').eq('inquiry_id', inquiry.id).order('created_at'); if (error) throw error
+    const ids = [...new Set((data ?? []).map((i: any) => i.product_id).filter(Boolean))]
+    const info = ids.length ? ((await supabase.from('products').select('id,handle_of').in('id', ids)).data ?? []) : []
+    return { items: data as any[], handle: new Map<string, string | null>(info.map((p: any) => [p.id, p.handle_of] as [string, string | null])) } } })
+  if (cat.data && items.data && rows === null) {
+    const out: ItemRow[] = [], kp: Record<number, { base: string; total: number; lines: any[] }> = {}, fz: any[] = [], orph: any[] = [], byBase = new Map<string, ItemRow>()
+    for (const i of items.data.items) {
+      const base = (i.product_id && items.data.handle.get(i.product_id)) || i.product_id, p = base ? cat.data.find((x: any) => x.id === base) : null
+      if (!i.product_id) { orph.push(i); out.push({ ...newRow(), qty: i.quantity != null ? String(Number(i.quantity)) : '' }); continue }
+      if (!p) { fz.push(i); continue }
+      const isVar = !!items.data.handle.get(i.product_id), ex = byBase.get(base)
+      if (isVar && ex) { ex.qty = String(Number(ex.qty) + Number(i.quantity ?? 0)); kp[ex.key].total += Number(i.quantity ?? 0); kp[ex.key].lines.push(i); continue }
+      const row: ItemRow = { ...newRow(), cat: p.product_category, pid: base, qty: i.quantity != null ? String(Number(i.quantity)) : '', mortis: i.mortis_spare_id ?? '' }
+      out.push(row); if (isVar) { byBase.set(base, row); kp[row.key] = { base, total: Number(i.quantity ?? 0), lines: [i] } }
+    }
+    setKeep(kp); setFrozen(fz); setOrphans(orph); setRows(out.length || fz.length ? out : [newRow()])
+  }
   async function save() {
     setErr(''); const prods = cat.data ?? [], used = (rows ?? []).filter((r) => r.pid || r.qty)
     for (const r of used) { const p = prods.find((x) => x.id === r.pid); if (!p) return setErr('Choose a category and a product on every item (or remove the empty item).'); if (!(Number(r.qty) > 0)) return setErr(`Enter the quantity for ${p.product_name}.`) }
+    const payload: any[] = frozen.map((i) => ({ product_id: i.product_id, quantity: i.quantity != null ? Number(i.quantity) : null, mortis_spare_id: i.mortis_spare_id || null }))
+    for (const r of used) {
+      const k = keep[r.key]
+      if (k && k.base === r.pid && Number(r.qty) === k.total) for (const l of k.lines) payload.push({ product_id: l.product_id, quantity: Number(l.quantity), mortis_spare_id: l.mortis_spare_id || null })
+      else payload.push({ product_id: r.pid, quantity: Number(r.qty), mortis_spare_id: r.mortis || null })
+    }
     setBusy(true)
-    const { error } = await supabase.rpc('save_inquiry_items', { p_inq: inquiry.id, p_items: used.map((r) => ({ product_id: r.pid, quantity: Number(r.qty), mortis_spare_id: r.mortis || null })) })
+    const { error } = await supabase.rpc('save_inquiry_items', { p_inq: inquiry.id, p_items: payload })
     setBusy(false); if (error) return setErr(error.message)
-    qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['quote-items'] }); onClose()
+    qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['quote-items'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }); onClose()
   }
   return <div className="modal"><div className="card" style={{ maxWidth: 560 }}>
     <h3 style={{ margin: 0 }}>Edit items</h3><WhoFor inquiry={inquiry} />
     {!rows && <p className="empty">Loading…</p>}
+    {orphans.length > 0 && <div className="warnbox">These old items are not linked to a catalogue product. Choose the product for each blank row below (quantity is already filled): {orphans.map((o) => `${o.product_name_snapshot} × ${o.quantity ?? '?'}`).join(', ')}</div>}
+    {frozen.length > 0 && <div className="muted">Also kept as they are: {frozen.map((o) => `${o.product_name_snapshot} × ${o.quantity ?? '?'}`).join(', ')}</div>}
     {rows && <ItemsEditor rows={rows} onChange={setRows} />}
     {err && <p className="msg">{err}</p>}
     <button className="primary" disabled={busy || !rows} onClick={save}>{busy ? 'Saving…' : 'Save items'}</button><button className="link" onClick={onClose}>Cancel</button>
