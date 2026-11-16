@@ -13,7 +13,7 @@ const pillOf = (s: string) => (s === 'Done' ? 'Done' : s === 'In progress' ? 'In
 export default function Repairs({ me }: { me: any }) {
   const qc = useQueryClient(), [form, setForm] = useState(false), [pieces, setPieces] = useState<any>(null), [upd, setUpd] = useState<any>(null), [openId, setOpenId] = useState('')
   const refresh = () => { qc.invalidateQueries({ queryKey: ['aftersales'] }); qc.invalidateQueries({ queryKey: ['spares'] }); qc.invalidateQueries({ queryKey: ['service-team'] }) }
-  const boxes = useQuery({ queryKey: ['aftersales', 'repairs'], queryFn: async () => { const { data, error } = await supabase.from('repair_boxes').select('id,box_no,customer_name,city,courier,notes,received_on,status,created_at,assigned_to,assigned:employees!assigned_to(employee_name),giver:employees!created_by(employee_name),repair_items(id,product,fault,repaired,status,work_date,repair_item_spares(spare_id,qty,spare_parts(name))),job_updates(id,done,note,proof_path,created_at,update_date)').order('created_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
+  const boxes = useQuery({ queryKey: ['aftersales', 'repairs'], queryFn: async () => { const { data, error } = await supabase.from('repair_boxes').select('id,box_no,ticket:service_tickets!ticket_id(seq,title),customer_name,city,courier,notes,received_on,status,created_at,assigned_to,assigned:employees!assigned_to(employee_name),giver:employees!created_by(employee_name),repair_items(id,product,fault,repaired,status,work_date,repair_item_spares(spare_id,qty,spare_parts(name))),job_updates(id,done,note,proof_path,created_at,update_date)').order('created_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
   const mayWork = (b: any) => me.role === 'admin' || (me.role === 'service' && b.assigned_to === me.id)
   return <>
     <button className="primary bigbtn go" onClick={() => setForm(true)}>+ Add repair box</button>
@@ -26,6 +26,7 @@ export default function Repairs({ me }: { me: any }) {
         <AgeTag since={b.created_at} finished={done} />
         {b.notes && <div className="muted">{b.notes}</div>}
         <div className="muted">Received {fmtDate(b.received_on)}{b.courier ? ` · ${b.courier}` : ''} · {its.length} piece{its.length === 1 ? '' : 's'}{its.length ? `, ${its.filter((i) => i.status === 'Repaired').length} repaired` : ''}</div>
+        {one(b.ticket) && <div className="muted">🎫 From ticket S-{String(one(b.ticket).seq).padStart(3, '0')} · {one(b.ticket).title}</div>}
         <div className="muted">Given to {one(b.assigned)?.employee_name ?? 'nobody yet'}{one(b.giver)?.employee_name ? ` · by ${one(b.giver).employee_name}` : ''}</div>
         {!done && mayWork(b) && <div className="bar" onClick={(e) => e.stopPropagation()}>
           <button className="primary" onClick={() => setPieces(b)}>Pieces in the box</button>

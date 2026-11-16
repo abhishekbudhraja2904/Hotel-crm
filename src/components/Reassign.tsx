@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { useEmps } from './Pickers'
+import { useEmps, useEmpsAndDesk, useDesk } from './Pickers'
 // A service employee who cannot do a job hands it to another service employee. Admin and service admin can do it too.
 export function HandOverButton({ me, kind, id, currentId, title }: { me: any; kind: 'installation' | 'ticket' | 'repair' | 'packing'; id: string; currentId?: string | null; title: string }) {
   const [open, setOpen] = useState(false)
-  const may = me.role === 'admin' || me.role === 'service_admin' || (me.role === 'service' && currentId === me.id)
+  const desk = useDesk(), isDesk = !!desk.data?.me && (kind === 'ticket' || kind === 'repair')
+  const may = me.role === 'admin' || me.role === 'service_admin' || isDesk || (me.role === 'service' && currentId === me.id)
   if (!may) return null
   return <>
     <button onClick={(e) => { e.stopPropagation(); setOpen(true) }}>Give to another employee</button>
@@ -13,7 +14,7 @@ export function HandOverButton({ me, kind, id, currentId, title }: { me: any; ki
   </>
 }
 function HandOver({ kind, id, currentId, title, onClose }: { kind: string; id: string; currentId?: string | null; title: string; onClose: () => void }) {
-  const qc = useQueryClient(), emps = useEmps(), [to, setTo] = useState(''), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  const qc = useQueryClient(), svc = useEmps(), withDesk = useEmpsAndDesk(), emps = kind === 'ticket' ? withDesk : svc, [to, setTo] = useState(''), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
   async function go(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr('')
     const { error } = await supabase.rpc('reassign_work', { p_kind: kind, p_id: id, p_to: to })

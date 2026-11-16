@@ -5,7 +5,7 @@ import { fmtDate as fmt, isoDate } from '../lib/dates'
 import DateField from './DateField'
 import JobUpdate, { UpdateList } from './JobUpdate'
 import Repairs from './Repairs'
-import { CustomerPick, useEmps, useCustomers } from './Pickers'
+import { CustomerPick, useEmps, useEmpsAndDesk, useDesk, useCustomers } from './Pickers'
 import { HandOverButton } from './Reassign'
 import { AgeTag, ageLook } from '../lib/age'
 import { CustomerTicketBar } from './CustomerApp'
@@ -14,12 +14,13 @@ const today = () => isoDate()
 const inWarranty = (u?: string | null) => !!u && u >= today()
 export default function AfterSales({ me }: { me: any }) {
   const qc = useQueryClient(), [tab, setTab] = useState<'inst' | 'tix' | 'rep' | 'mine' | 'find'>('inst'), [msg, setMsg] = useState('')
-  const [upd, setUpd] = useState<any>(null), [form, setForm] = useState<'' | 'inst' | 'tix'>(''), [serialFor, setSerialFor] = useState<any>(null), [openId, setOpenId] = useState('')
+  const [boxFor, setBoxFor] = useState<any>(null), [upd, setUpd] = useState<any>(null), [form, setForm] = useState<'' | 'inst' | 'tix'>(''), [serialFor, setSerialFor] = useState<any>(null), [openId, setOpenId] = useState('')
   const canWrite = me.role === 'admin' || me.role === 'service' || me.role === 'sales' // may record installations and add serial numbers
-  const canTix = me.role === 'admin' || me.role === 'service' // may change a ticket's status
+  const desk = useDesk(), isDesk = !!desk.data?.me, [kindF, setKindF] = useState<'' | 'Software' | 'Technical' | 'mine'>('')
+  const canTix = me.role === 'admin' || me.role === 'service' || isDesk // may change a ticket's status
   const refresh = () => qc.invalidateQueries({ queryKey: ['aftersales'] })
   const inst = useQuery({ queryKey: ['aftersales', 'inst'], queryFn: async () => { const { data, error } = await supabase.from('installations').select('id,status,technician_id,created_at,job_updates(id,done,note,proof_path,created_at,update_date),site_name,what,installed_on,warranty_until,warranty_months,notes,inquiry_id,employees:technician_id(employee_name),giver:employees!created_by(employee_name),inquiries(customers(customer_name,city)),serials(id,serial_no,room,packing_no)').order('installed_on', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
-  const tix = useQuery({ queryKey: ['aftersales', 'tix'], queryFn: async () => { const { data, error } = await supabase.from('service_tickets').select('id,assigned_to,job_updates(id,done,note,proof_path,created_at,update_date),seq,site_name,title,details,priority,status,opened_at,closed_at,installations(warranty_until,inquiries(customers(customer_name,city))),assigned:employees!assigned_to(employee_name),giver:employees!opened_by(employee_name)').order('opened_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
+  const tix = useQuery({ queryKey: ['aftersales', 'tix'], queryFn: async () => { const { data, error } = await supabase.from('service_tickets').select('id,assigned_to,kind,repair_boxes(id,box_no,status),job_updates(id,done,note,proof_path,created_at,update_date),seq,site_name,title,details,priority,status,opened_at,closed_at,installations(warranty_until,inquiries(customers(customer_name,city))),assigned:employees!assigned_to(employee_name),giver:employees!opened_by(employee_name)').order('opened_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
   const appTix = useQuery({ queryKey: ['aftersales', 'app-tix'], queryFn: async () => { const { data, error } = await supabase.rpc('staff_customer_tickets'); if (error) throw error; return (data ?? {}) as Record<string, any> } })
   async function setStatus(t: any, status: string) { const { error } = await supabase.from('service_tickets').update({ status }).eq('id', t.id); setMsg(error ? error.message : ''); refresh() }
   const [q, setQ] = useState('')
@@ -50,18 +51,20 @@ export default function AfterSales({ me }: { me: any }) {
         </div>)}</>}
       {tab === 'tix' && <>
         <button className="primary bigbtn go" onClick={() => setForm('tix')}>+ New service ticket</button>
+        <div className="bar">{([['', 'All'], ['Software', 'Software'], ['Technical', 'Technical'], ...(isDesk ? [['mine', 'Mine']] : [])] as [string, string][]).map(([k, l]) => <button key={k} className={kindF === k ? 'primary' : ''} onClick={() => setKindF(k as any)}>{l}{tix.data ? ` (${tix.data.filter((t) => k === '' ? true : k === 'mine' ? t.assigned_to === me.id : t.kind === k).filter((t) => t.status !== 'Fixed').length})` : ''}</button>)}</div>
         {tix.data && !tix.data.length && <p className="empty">No tickets.</p>}
-        {tix.data?.map((t) => { const w = one(t.installations)?.warranty_until; return <div className="card" key={t.id} style={{ borderLeftColor: t.priority === 'High' ? '#9b3b30' : '#8A6F52', opacity: t.status === 'Fixed' ? 0.7 : 1, ...ageLook(t.opened_at, t.status === 'Fixed').style }}>
-          <div className="row"><b>Ticket S-{String(t.seq).padStart(3, '0')}</b><span className={`pill ${t.priority === 'High' ? 'Urgent' : t.priority}`}>{t.priority}</span></div>
+        {tix.data?.filter((t) => kindF === '' ? true : kindF === 'mine' ? t.assigned_to === me.id : t.kind === kindF).map((t) => { const w = one(t.installations)?.warranty_until; return <div className="card" key={t.id} style={{ borderLeftColor: t.priority === 'High' ? '#9b3b30' : '#8A6F52', opacity: t.status === 'Fixed' ? 0.7 : 1, ...ageLook(t.opened_at, t.status === 'Fixed').style }}>
+          <div className="row"><b>Ticket S-{String(t.seq).padStart(3, '0')} <span className="pill" style={{ marginLeft: 6 }}>{t.kind === 'Software' ? '💻 Software' : '🔧 Technical'}</span></b><span className={`pill ${t.priority === 'High' ? 'Urgent' : t.priority}`}>{t.priority}</span></div>
           <div style={{ fontSize: 16 }}>{t.title}</div>
           <AgeTag since={t.opened_at} finished={t.status === 'Fixed'} />
           <div className="muted">{[t.site_name, one(one(one(t.installations)?.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(t.giver)?.employee_name ? ` · Given by ${one(t.giver).employee_name}` : ''}</div>
           <div className="muted">Opened {fmt(t.opened_at)}{w ? (inWarranty(w) ? ' · in warranty' : ' · warranty over') : ''}{one(t.assigned)?.employee_name ? ` · ${one(t.assigned).employee_name}` : ''}</div>
           {t.details && <div className="muted" style={{ whiteSpace: 'pre-line' }}>{t.details}</div>}
+          {t.repair_boxes?.map((b: any) => <div className="muted" key={b.id}>📦 Repair box no. <b>{b.box_no}</b> · {b.status}</div>)}
           {appTix.data?.[t.id] && <CustomerTicketBar info={appTix.data[t.id]} seq={t.seq} />}
           <UpdateList list={t.job_updates} />
-          {t.status !== 'Fixed' && (me.role === 'admin' || (me.role === 'service' && t.assigned_to === me.id)) && <button className="primary" onClick={() => setUpd({ ticket: t.id, title: `S-${String(t.seq).padStart(3, '0')} · ${t.title}` })}>Update work (partly / fully done)</button>}
-          {t.status !== 'Fixed' && <div className="bar"><HandOverButton me={me} kind="ticket" id={t.id} currentId={t.assigned_to} title={`S-${String(t.seq).padStart(3, '0')} · ${t.title}`} /></div>}
+          {t.status !== 'Fixed' && (me.role === 'admin' || (me.role === 'service' && t.assigned_to === me.id) || (isDesk && t.assigned_to === me.id)) && <button className="primary" onClick={() => setUpd({ ticket: t.id, title: `S-${String(t.seq).padStart(3, '0')} · ${t.title}` })}>Update work (partly / fully done)</button>}
+          {t.status !== 'Fixed' && <div className="bar"><HandOverButton me={me} kind="ticket" id={t.id} currentId={t.assigned_to} title={`S-${String(t.seq).padStart(3, '0')} · ${t.title}`} />{(canTix || me.role === 'service_admin') && <button onClick={() => setBoxFor(t)}>📦 Send for repair (open repair box)</button>}</div>}
           {canTix ? <div className="bar">{['Open', 'In progress', 'Fixed'].map((s) => <button key={s} className={t.status === s ? 'primary' : ''} onClick={() => t.status !== s && setStatus(t, s)}>{s}</button>)}</div> : <span className="pill" style={{ justifySelf: 'start' }}>{t.status}</span>}
         </div> })}</>}
       {tab === 'rep' && <Repairs me={me} />}
@@ -73,6 +76,7 @@ export default function AfterSales({ me }: { me: any }) {
           <div className="muted">{s.packing_no ? `Packing no. ${s.packing_no} · ` : ''}installed {fmt(i?.installed_on)} by {one(i?.employees)?.employee_name ?? 'n/a'} · warranty until {fmt(i?.warranty_until)} ({inWarranty(i?.warranty_until) ? 'in warranty' : 'over'})</div></div> })}</>}
       {form === 'inst' && <InstForm me={me} onClose={() => setForm('')} onDone={() => refresh()} />}
       {upd && <JobUpdate me={me} inst={upd.inst} ticket={upd.ticket} title={upd.title} onClose={() => setUpd(null)} onDone={refresh} />}
+      {boxFor && <BoxFromTicket t={boxFor} onClose={() => setBoxFor(null)} onDone={refresh} />}
       {form === 'tix' && <TicketForm me={me} sites={inst.data ?? []} onClose={() => setForm('')} onDone={refresh} />}
       {serialFor && <Serials inst={serialFor} onClose={() => setSerialFor(null)} onDone={refresh} />}
     </section>
@@ -111,15 +115,16 @@ function Serials({ inst, onClose, onDone }: { inst: any; onClose: () => void; on
     {err && <p className="msg">{err}</p>}<button className="primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button><button className="link" onClick={onClose}>Skip for now</button></div></div>
 }
 function TicketForm({ me, sites, onClose, onDone }: { me: any; sites: any[]; onClose: () => void; onDone: () => void }) {
-  const emps = useEmps(), [f, setF] = useState({ inst: '', site: '', city: '', title: '', details: '', pr: 'Medium', to: me.role === 'service' ? me.id : '' }), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  const emps = useEmpsAndDesk(), desk = useDesk(), [f, setF] = useState({ inst: '', site: '', city: '', title: '', details: '', pr: 'Medium', kind: 'Technical', to: me.role === 'service' ? me.id : '' }), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
   async function save(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr('')
-    const s = sites.find((x) => x.id === f.inst), { error } = await supabase.from('service_tickets').insert({ installation_id: f.inst || null, site_name: (s?.site_name ?? f.site).trim(), city: (s?.city ?? f.city).trim() || null, title: f.title.trim(), details: f.details.trim() || null, priority: f.pr, assigned_to: f.to || null, opened_by: me.id })
+    const s = sites.find((x) => x.id === f.inst), { error } = await supabase.from('service_tickets').insert({ installation_id: f.inst || null, site_name: (s?.site_name ?? f.site).trim(), city: (s?.city ?? f.city).trim() || null, title: f.title.trim(), details: f.details.trim() || null, priority: f.pr, kind: f.kind, assigned_to: f.to || null, opened_by: me.id })
     setBusy(false); if (error) return setErr(error.message); onDone(); onClose()
   }
   return <div className="modal"><form className="card" onSubmit={save}><h3 style={{ margin: 0 }}>New service ticket</h3>
     <label>Installation<select value={f.inst} onChange={(e) => setF({ ...f, inst: e.target.value })}><option value="">Not in the list</option>{sites.map((s) => <option key={s.id} value={s.id}>{s.site_name} · {fmt(s.installed_on)}</option>)}</select></label>
-    {!f.inst && <CustomerPick site={f.site} city={f.city} onChange={(site, city) => setF({ ...f, site, city })} />}
+    {!f.inst && <CustomerPick buyersOnly site={f.site} city={f.city} onChange={(site, city) => setF({ ...f, site, city })} />}
+    <label>Type of problem<select value={f.kind} onChange={(e) => { const k = e.target.value; setF({ ...f, kind: k, to: k === 'Software' && desk.data ? desk.data.id : f.to === desk.data?.id ? '' : f.to }) }}><option value="Technical">🔧 Technical (hardware / on site)</option><option value="Software">💻 Software</option></select></label>
     <label>What is wrong?<input required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
     <label>More details<input value={f.details} onChange={(e) => setF({ ...f, details: e.target.value })} /></label>
     <label>Priority<select value={f.pr} onChange={(e) => setF({ ...f, pr: e.target.value })}><option>Low</option><option>Medium</option><option>High</option></select></label>
@@ -137,4 +142,21 @@ function MyUpdates() {
       <div className="row"><b>{u.job}{u.city ? ` · ${u.city}` : ''}</b><span className={`pill${u.done === 'complete' ? '' : ' Medium'}`}>{u.done === 'complete' ? 'Fully done' : 'Partly done'}</span></div>
       <div className="muted">Work date {fmt(u.day)} · saved {fmt(u.saved_at)}</div><div>{u.note}</div></div>)}
   </>
+}
+
+// A ticket that needs the product to come in: open a repair box tied to the ticket.
+function BoxFromTicket({ t, onClose, onDone }: { t: any; onClose: () => void; onDone: () => void }) {
+  const emps = useEmps(), [f, setF] = useState({ courier: '', notes: '', to: '', on: '' }), [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  async function save(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setErr('')
+    const { error } = await supabase.rpc('open_repair_box_for_ticket', { p_ticket: t.id, p_courier: f.courier, p_notes: f.notes, p_to: f.to || null, p_received: f.on || null })
+    setBusy(false); if (error) return setErr(error.message); onDone(); onClose()
+  }
+  return <div className="modal"><form className="card" onSubmit={save}><h3 style={{ margin: 0 }}>Send for repair</h3>
+    <div className="muted">S-{String(t.seq).padStart(3, '0')} · {t.title} · {t.site_name}</div>
+    <label>Courier / how it came<input value={f.courier} onChange={(e) => setF({ ...f, courier: e.target.value })} /></label>
+    <label>Notes<input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>
+    <label>Give the box to<select value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })}><option value="">Not assigned</option>{emps.data?.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>
+    <label>Received on (leave empty for today)<DateField value={f.on} onChange={(v) => setF({ ...f, on: v })} ariaLabel="Received on" /></label>
+    {err && <p className="msg">{err}</p>}<button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Open repair box'}</button><button type="button" className="link" onClick={onClose}>Cancel</button></form></div>
 }

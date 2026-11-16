@@ -25,6 +25,16 @@ export function TempRule({ me }: { me: any }) {
     <label>Warm: needed within (days)<input type="number" min="1" value={warm} onChange={(e) => setWarm(e.target.value)} /></label>
     {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save</button></div>
 }
+export function ServiceDesk({ me }: { me: any }) {
+  const qc = useQueryClient(), [msg, setMsg] = useState('')
+  const emps = useQuery({ queryKey: ['employees', 'desk-pick'], queryFn: async () => (await supabase.from('employees').select('id,employee_name,role').eq('active', true).in('role', ['sales', 'admin']).order('employee_name')).data ?? [] })
+  const cur = useQuery({ queryKey: ['service-desk'], queryFn: async () => ((await supabase.rpc('service_desk_info')).data ?? null) as any })
+  async function save(id: string) { const e = await saveSetting('serviceDeskId', id || '', me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['service-desk'] }) }
+  return <div className="card"><h3 style={{ margin: 0 }}>Service desk</h3>
+    <p className="muted" style={{ margin: 0 }}>One sales employee who takes every service call, software and technical. They see all tickets and repair boxes, open them, keep software tickets themselves and give technical ones to a technician. They are told about every new ticket.</p>
+    <label>Service desk employee<select value={cur.data?.id ?? ''} onChange={(e) => save(e.target.value)}><option value="">Nobody</option>{emps.data?.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name} ({x.role})</option>)}</select></label>
+    {msg && <p className="msg">{msg}</p>}</div>
+}
 export function PaymentRules({ me }: { me: any }) {
   const qc = useQueryClient(), s = useSettings(), [req, setReq] = useState(s.requireFullPayment), [msg, setMsg] = useState('')
   useEffect(() => { setReq(s.requireFullPayment) }, [s.requireFullPayment])
