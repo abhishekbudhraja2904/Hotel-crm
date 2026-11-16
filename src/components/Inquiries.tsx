@@ -17,6 +17,7 @@ import WhoFor from './WhoFor'
 import InquiryBar, { useMoney } from './Progress'
 import ItemsEditor, { ItemRow, newRow, rowsFromItems, useCatalogue } from './ItemsEditor'
 import Dispatch from './Dispatch'
+import Notes from './Notes'
 import CustomerApp from './CustomerApp'
 import EditCustomer from './EditCustomer'
 import { fmtDate, fmtDateTime } from '../lib/dates'
@@ -28,7 +29,7 @@ export default function Inquiries({ me }: { me: any }) {
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const [view, setView] = useState<'list' | 'old'>('list'), [reorderFor, setReorderFor] = useState<any>(null)
-  const [emp, setEmp] = useState(''), [tf, setTf] = useState(''), cfg = useSettings()
+  const [emp, setEmp] = useState(''), [tf, setTf] = useState(''), [att, setAtt] = useState(''), [notesFor, setNotesFor] = useState<any>(null), cfg = useSettings()
   async function setNeeded(r: any, v: string) { const { error } = await supabase.from('inquiries').update({ needed_by: v || null }).eq('id', r.id); if (error) setMsg(error.message); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   const lastFu = useQuery({ queryKey: ['followups', 'last'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('inquiry_id,outcome,completed_at').eq('status', 'Completed').order('completed_at', { ascending: false }).limit(500)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
   const [q, setQ] = useState(''), [stage, setStage] = useState(''), [open, setOpen] = useState(false), [msg, setMsg] = useState('')
@@ -36,13 +37,15 @@ export default function Inquiries({ me }: { me: any }) {
     queryKey: ['inquiries'],
     queryFn: async () => {
       const { data, error } = await supabase.from('inquiries')
-        .select('id,needed_by,customer_id,inquiry_source,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
+        .select('id,attended_at,created_at,needed_by,customer_id,inquiry_source,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
         .is('archived_at', null).order('created_at', { ascending: false }).limit(200)
       if (error) throw error
       return data
     }
   })
-  const rows = data.filter((r: any) => (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
+  const ATT_HOURS = 4
+  const notAtt = (r: any) => !r.attended_at && !['Order Confirmed', 'Lost'].includes(r.sales_stage) && Date.now() - new Date(r.created_at).getTime() > ATT_HOURS * 3600000
+  const rows = data.filter((r: any) => (!att || notAtt(r)) && (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
     JSON.stringify(r).toLowerCase().includes(q.toLowerCase()))
 
   const money = useMoney()
@@ -96,6 +99,7 @@ export default function Inquiries({ me }: { me: any }) {
         <input placeholder="Search inquiries…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={stage} onChange={(e) => setStage(e.target.value)}><option value="">All stages</option>{STAGES.map((s) => <option key={s}>{s}</option>)}</select>
         <select value={tf} onChange={(e) => setTf(e.target.value)}><option value="">Hot / Warm / Cold</option><option value="Hot">🔥 Hot</option><option value="Warm">🌤 Warm</option><option value="Cold">❄️ Cold</option><option value="None">No date set</option></select>
+        {isAdmin && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 14, color: 'inherit' }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={!!att} onChange={(e) => setAtt(e.target.checked ? '1' : '')} />Not attended</label>}
         {isAdmin && <select value={emp} onChange={(e) => setEmp(e.target.value)}><option value="">All staff</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select>}
         <button className="primary" onClick={() => setOpen(true)}>+ Add inquiry</button>
       </div>
@@ -105,7 +109,7 @@ export default function Inquiries({ me }: { me: any }) {
       {!isLoading && !rows.length && <p className="empty">No inquiries yet.</p>}
       {rows.map((r: any) => (
         <div className="card" key={r.id}>
-          <div className="row"><b>{r.inquiry_number}</b><span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{!['Order Confirmed', 'Lost'].includes(r.sales_stage) && (() => { const t = tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays), L = TEMP_LOOK[t]; return L ? <span className="pill" style={{ background: L.bg, color: L.fg }}>{L.icon} {t}</span> : null })()}<span className={`pill ${r.priority}`}>{r.priority}</span></span></div>
+          <div className="row"><b>{r.inquiry_number}{isAdmin && notAtt(r) && <span className="pill" style={{ background: '#fde2e2', color: '#b42318', marginLeft: 8 }}>Not attended yet</span>}</b><span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{!['Order Confirmed', 'Lost'].includes(r.sales_stage) && (() => { const t = tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays), L = TEMP_LOOK[t]; return L ? <span className="pill" style={{ background: L.bg, color: L.fg }}>{L.icon} {t}</span> : null })()}<span className={`pill ${r.priority}`}>{r.priority}</span></span></div>
           <div>{r.customers?.customer_name} {(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setCustFor(r)}>✎ Edit</button>} {r.customers?.phone_number && <a href={`tel:${r.customers.phone_number}`}>📞 {r.customers.phone_number}</a>}</div>
           <div className="muted">{r.inquiry_items?.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || r.inquiry_title || 'No product yet'}</div>
           <div className="muted">Assigned: {r.assigned?.employee_name ?? 'Unassigned'} · Next follow-up: {r.next_followup_at ? fmtDateTime(r.next_followup_at) : '—'}</div>
@@ -116,7 +120,7 @@ export default function Inquiries({ me }: { me: any }) {
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
           <div className="row">
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
-            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button>{r.dispatched_at && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setReorderFor({ customerId: r.customer_id, name: r.customers?.customer_name ?? '', inquiryId: r.id })}>Repeat order</button>}{r.inquiry_source === 'IndiaMART' && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => openMail(r)}>Original email</button>}{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setAppFor(r)}>Customer app</button>}{me.role !== 'service' && <button className="link" onClick={() => setQuoFor(r)}>Quotations</button>}{(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button className="link" onClick={() => setEditFor(r)}>Edit items</button>}
+            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button><button className="link" onClick={() => setNotesFor(r)}>📝 Notes</button>{r.dispatched_at && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setReorderFor({ customerId: r.customer_id, name: r.customers?.customer_name ?? '', inquiryId: r.id })}>Repeat order</button>}{r.inquiry_source === 'IndiaMART' && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => openMail(r)}>Original email</button>}{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setAppFor(r)}>Customer app</button>}{me.role !== 'service' && <button className="link" onClick={() => setQuoFor(r)}>Quotations</button>}{(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button className="link" onClick={() => setEditFor(r)}>Edit items</button>}
             {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button><button className="link" onClick={() => del(r)}>Delete</button></>}
           </div>
         </div>
@@ -130,6 +134,7 @@ export default function Inquiries({ me }: { me: any }) {
       {payFor && <Payments me={me} inquiry={payFor} onClose={() => setPayFor(null)} />}
       {lostFor && <LostReason inquiry={lostFor} onClose={() => setLostFor(null)} onSave={async (reason, note) => { const e = await moveStage(lostFor, 'Lost', { lost_reason: reason, lost_note: note || null }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); return e }} />}
       {fuFor && <ScheduleFollowup me={me} inquiryId={fuFor.id} assignedTo={fuFor.assigned_to} title="Add a follow-up" who={fuFor.customers} onClose={() => setFuFor(null)} />}
+      {notesFor && <Notes kind="inquiry" id={notesFor.id} title={`${notesFor.inquiry_number} · ${notesFor.customers?.customer_name ?? ''}`} me={me} onClose={() => setNotesFor(null)} />}
       {editFor && <EditItems inquiry={editFor} onClose={() => setEditFor(null)} />}
       {dispFor && <Dispatch me={me} inquiry={dispFor} onClose={() => setDispFor(null)} />}
       {reorderFor && <Reorder me={me} customerId={reorderFor.customerId} name={reorderFor.name} fromInquiryId={reorderFor.inquiryId} onClose={() => setReorderFor(null)} onCreated={(row) => { setReorderFor(null); qc.invalidateQueries({ queryKey: ['inquiries'] }); setConfirmFor(row) }} />}

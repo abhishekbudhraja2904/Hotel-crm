@@ -5,6 +5,9 @@ import { fmtDate as fmt, isoDate } from '../lib/dates'
 import DateField from './DateField'
 import JobUpdate, { UpdateList } from './JobUpdate'
 import Repairs from './Repairs'
+import AckBar from './AckBar'
+import EditJob from './EditJob'
+import Notes from './Notes'
 import { CustomerPick, useEmps, useEmpsAndDesk, useDesk, useCustomers } from './Pickers'
 import { HandOverButton } from './Reassign'
 import { AgeTag, ageLook } from '../lib/age'
@@ -14,7 +17,7 @@ const today = () => isoDate()
 const inWarranty = (u?: string | null) => !!u && u >= today()
 export default function AfterSales({ me }: { me: any }) {
   const qc = useQueryClient(), [tab, setTab] = useState<'inst' | 'tix' | 'rep' | 'mine' | 'find'>('inst'), [msg, setMsg] = useState('')
-  const [boxFor, setBoxFor] = useState<any>(null), [upd, setUpd] = useState<any>(null), [form, setForm] = useState<'' | 'inst' | 'tix'>(''), [serialFor, setSerialFor] = useState<any>(null), [openId, setOpenId] = useState('')
+  const [editJob, setEditJob] = useState<any>(null), [notesT, setNotesT] = useState<any>(null), [boxFor, setBoxFor] = useState<any>(null), [upd, setUpd] = useState<any>(null), [form, setForm] = useState<'' | 'inst' | 'tix'>(''), [serialFor, setSerialFor] = useState<any>(null), [openId, setOpenId] = useState('')
   const canWrite = me.role === 'admin' || me.role === 'service' || me.role === 'sales' // may record installations and add serial numbers
   const desk = useDesk(), isDesk = !!desk.data?.me, [kindF, setKindF] = useState<'' | 'Software' | 'Technical' | 'mine'>('')
   const canTix = me.role === 'admin' || me.role === 'service' || isDesk // may change a ticket's status
@@ -39,6 +42,8 @@ export default function AfterSales({ me }: { me: any }) {
           {i.what && <div>{i.what}</div>}
           <div className="muted">{[i.site_name, one(one(i.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(i.giver)?.employee_name ? ` · Given by ${one(i.giver).employee_name}` : ''}</div>
           <div className="muted">{i.status === 'Completed' ? `Completed ${fmt(i.installed_on)} by ${one(i.employees)?.employee_name ?? 'n/a'} · warranty until ${fmt(i.warranty_until)}` : `Given to ${one(i.employees)?.employee_name ?? 'nobody yet'} · planned ${fmt(i.installed_on)}`}</div>
+          <AckBar kind="installation" id={i.id} />
+          {(me.role === 'admin' || me.role === 'sales' || me.role === 'service_admin' || me.role === 'service') && <div className="bar" onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => setEditJob({ kind: 'installation', row: i })}>✎ Edit</button></div>}
           {i.status !== 'Completed' && (me.role === 'admin' || (me.role === 'service' && i.technician_id === me.id)) && <button className="primary" onClick={(e) => { e.stopPropagation(); setUpd({ inst: i.id, title: `${i.site_name}${i.what ? ' · ' + i.what : ''}` }) }}>Update work (partly / fully done)</button>}
           {i.status !== 'Completed' && <div className="bar" onClick={(e) => e.stopPropagation()}><HandOverButton me={me} kind="installation" id={i.id} currentId={i.technician_id} title={`${i.site_name}${i.what ? ' · ' + i.what : ''}`} /></div>}
           {openId === i.id && <div style={{ display: 'grid', gap: 6 }} onClick={(e) => e.stopPropagation()}>
@@ -60,6 +65,8 @@ export default function AfterSales({ me }: { me: any }) {
           <div className="muted">{[t.site_name, one(one(one(t.installations)?.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(t.giver)?.employee_name ? ` · Given by ${one(t.giver).employee_name}` : ''}</div>
           <div className="muted">Opened {fmt(t.opened_at)}{w ? (inWarranty(w) ? ' · in warranty' : ' · warranty over') : ''}{one(t.assigned)?.employee_name ? ` · ${one(t.assigned).employee_name}` : ''}</div>
           {t.details && <div className="muted" style={{ whiteSpace: 'pre-line' }}>{t.details}</div>}
+          <AckBar kind="ticket" id={t.id} />
+          <div className="bar"><button className="link" onClick={() => setNotesT(t)}>📝 Notes</button>{(canTix || me.role === 'service_admin') && <button className="link" onClick={() => setEditJob({ kind: 'ticket', row: t })}>✎ Edit</button>}</div>
           {t.repair_boxes?.map((b: any) => <div className="muted" key={b.id}>📦 Repair box no. <b>{b.box_no}</b> · {b.status}</div>)}
           {appTix.data?.[t.id] && <CustomerTicketBar info={appTix.data[t.id]} seq={t.seq} />}
           <UpdateList list={t.job_updates} />
@@ -74,6 +81,8 @@ export default function AfterSales({ me }: { me: any }) {
         {found.data && !found.data.length && <p className="empty">Nothing found.</p>}
         {found.data?.map((s) => { const i = one(s.installations); return <div className="card" key={s.id}><b>{s.serial_no}</b><div><b>{i?.site_name}</b>{s.room ? `, Room ${s.room}` : ''}</div>
           <div className="muted">{s.packing_no ? `Packing no. ${s.packing_no} · ` : ''}installed {fmt(i?.installed_on)} by {one(i?.employees)?.employee_name ?? 'n/a'} · warranty until {fmt(i?.warranty_until)} ({inWarranty(i?.warranty_until) ? 'in warranty' : 'over'})</div></div> })}</>}
+      {editJob && <EditJob kind={editJob.kind} row={editJob.row} onClose={() => setEditJob(null)} />}
+      {notesT && <Notes kind="ticket" id={notesT.id} title={`S-${String(notesT.seq).padStart(3, '0')} · ${notesT.title}`} me={me} canAdd={me.role === 'admin' || me.role === 'sales' || me.role === 'service_admin' || isDesk} onClose={() => setNotesT(null)} />}
       {form === 'inst' && <InstForm me={me} onClose={() => setForm('')} onDone={() => refresh()} />}
       {upd && <JobUpdate me={me} inst={upd.inst} ticket={upd.ticket} title={upd.title} onClose={() => setUpd(null)} onDone={refresh} />}
       {boxFor && <BoxFromTicket t={boxFor} onClose={() => setBoxFor(null)} onDone={refresh} />}

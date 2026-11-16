@@ -1,3 +1,4 @@
+import EditJob from './EditJob'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -6,12 +7,13 @@ import DateField from './DateField'
 import JobUpdate, { UpdateList } from './JobUpdate'
 import { CustomerPick, useEmps } from './Pickers'
 import { HandOverButton } from './Reassign'
+import AckBar from './AckBar'
 import { AgeTag, ageLook } from '../lib/age'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const pillOf = (s: string) => (s === 'Done' ? 'Done' : s === 'In progress' ? 'In progress' : 'To do')
 // Repair boxes: a box arrives, is given to a service employee, who lists each piece, what was wrong, what was repaired and the spare parts used.
 export default function Repairs({ me }: { me: any }) {
-  const qc = useQueryClient(), [form, setForm] = useState(false), [pieces, setPieces] = useState<any>(null), [upd, setUpd] = useState<any>(null), [openId, setOpenId] = useState('')
+  const qc = useQueryClient(), [form, setForm] = useState(false), [editBox, setEditBox] = useState<any>(null), [pieces, setPieces] = useState<any>(null), [upd, setUpd] = useState<any>(null), [openId, setOpenId] = useState('')
   const refresh = () => { qc.invalidateQueries({ queryKey: ['aftersales'] }); qc.invalidateQueries({ queryKey: ['spares'] }); qc.invalidateQueries({ queryKey: ['service-team'] }) }
   const boxes = useQuery({ queryKey: ['aftersales', 'repairs'], queryFn: async () => { const { data, error } = await supabase.from('repair_boxes').select('id,box_no,ticket:service_tickets!ticket_id(seq,title),customer_name,city,courier,notes,received_on,status,created_at,assigned_to,assigned:employees!assigned_to(employee_name),giver:employees!created_by(employee_name),repair_items(id,product,fault,repaired,status,work_date,repair_item_spares(spare_id,qty,spare_parts(name))),job_updates(id,done,note,proof_path,created_at,update_date)').order('created_at', { ascending: false }).limit(200); if (error) throw error; return data as any[] } })
   const mayWork = (b: any) => me.role === 'admin' || (me.role === 'service' && b.assigned_to === me.id)
@@ -28,9 +30,11 @@ export default function Repairs({ me }: { me: any }) {
         <div className="muted">Received {fmtDate(b.received_on)}{b.courier ? ` · ${b.courier}` : ''} · {its.length} piece{its.length === 1 ? '' : 's'}{its.length ? `, ${its.filter((i) => i.status === 'Repaired').length} repaired` : ''}</div>
         {one(b.ticket) && <div className="muted">🎫 From ticket S-{String(one(b.ticket).seq).padStart(3, '0')} · {one(b.ticket).title}</div>}
         <div className="muted">Given to {one(b.assigned)?.employee_name ?? 'nobody yet'}{one(b.giver)?.employee_name ? ` · by ${one(b.giver).employee_name}` : ''}</div>
+        {!done && <AckBar kind="repair" id={b.id} />}
         {!done && mayWork(b) && <div className="bar" onClick={(e) => e.stopPropagation()}>
           <button className="primary" onClick={() => setPieces(b)}>Pieces in the box</button>
           <button className="primary" onClick={() => setUpd({ box: b.id, title: `Repair box no. ${b.box_no} · ${b.customer_name}` })}>Update work (partly / fully done)</button></div>}
+        {(me.role === 'admin' || me.role === 'service' || me.role === 'service_admin') && <div className="bar" onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => setEditBox(b)}>✎ Edit</button></div>}
         {!done && <div className="bar" onClick={(e) => e.stopPropagation()}><HandOverButton me={me} kind="repair" id={b.id} currentId={b.assigned_to} title={`Repair box no. ${b.box_no} · ${b.customer_name}`} /></div>}
         {open && <div style={{ display: 'grid', gap: 6 }} onClick={(e) => e.stopPropagation()}>
           {its.map((i) => <div key={i.id} className="muted"><b>{i.product}</b> · {i.status}{i.fault ? ` · Fault: ${i.fault}` : ''}{i.repaired ? ` · Repaired: ${i.repaired}` : ''}{i.repair_item_spares?.length ? ` · Spares: ${i.repair_item_spares.map((s: any) => `${Number(s.qty)} × ${one(s.spare_parts)?.name ?? '?'}`).join(', ')}` : ''}</div>)}
@@ -38,6 +42,7 @@ export default function Repairs({ me }: { me: any }) {
           <UpdateList list={b.job_updates} />
         </div>}
       </div> })}
+    {editBox && <EditJob kind="repair" row={editBox} onClose={() => setEditBox(null)} />}
     {form && <BoxForm me={me} onClose={() => setForm(false)} onDone={refresh} />}
     {pieces && <Pieces box={boxes.data?.find((x) => x.id === pieces.id) ?? pieces} onClose={() => setPieces(null)} onChanged={refresh} />}
     {upd && <JobUpdate me={me} box={upd.box} title={upd.title} onClose={() => setUpd(null)} onDone={refresh} />}

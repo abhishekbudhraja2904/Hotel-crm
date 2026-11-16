@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 // Stock has arrived: choose the product from the catalogue and say how many pieces came.
 import { productOptions } from './ProductOptions'
-export default function ReceiveStock({ products, onClose, onDone }: { products: any[]; onClose: () => void; onDone: () => void }) {
+export default function ReceiveStock({ products, onClose, onDone, presetId = '' }: { products: any[]; presetId?: string; onClose: () => void; onDone: () => void }) {
   const [L, setL] = useState(''), [R, setR] = useState('')
-  const [pid, setPid] = useState(''), [pieces, setPieces] = useState(''), [err, setErr] = useState(''), [busy, setBusy] = useState(false), [added, setAdded] = useState<string | null>(null)
+  const [pid, setPid] = useState(presetId), [pieces, setPieces] = useState(''), [err, setErr] = useState(''), [busy, setBusy] = useState(false), [added, setAdded] = useState<string | null>(null)
   const nl = Number(L) || 0, nr = Number(R) || 0, P = Number(pieces) || 0, prod = products.find((p) => p.product_id === pid), isLock = /^RFID Hotel Lock/i.test(prod?.product_category ?? '')
   async function save() {
     if (!pid) return setErr('Choose the product.')

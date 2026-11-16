@@ -12,6 +12,15 @@ export function PackReminderRule({ me }: { me: any }) {
     <label>Remind every (hours)<input type="number" min="0.5" max="72" step="0.5" value={h} onChange={(e) => setH(e.target.value)} /></label>
     {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save</button></div>
 }
+export function AckRule({ me }: { me: any }) {
+  const qc = useQueryClient(), s = useSettings(), [h, setH] = useState(String(s.ackReminderHours)), [msg, setMsg] = useState('')
+  useEffect(() => { setH(String(s.ackReminderHours)) }, [s.ackReminderHours])
+  async function save() { const v = Number(h); if (!(v === 0 || (v >= 0.25 && v <= 72))) return setMsg('Use 0 to switch off, or 0.25 to 72 hours.'); const e = await saveSetting('ackReminderHours', v, me.id); setMsg(e ?? 'Saved.'); qc.invalidateQueries({ queryKey: ['settings'] }) }
+  return <div className="card"><h3 style={{ margin: 0 }}>Acknowledgement reminders</h3>
+    <p className="muted" style={{ margin: 0 }}>When work (packing, repair box, installation, service ticket) is given to a service employee, they must tap Acknowledge. Until they do, they get a reminder every few hours, and admin, the giver and the service desk see "Not acknowledged yet".</p>
+    <label>Remind every (hours, 0 = no reminders)<input type="number" min="0" max="72" step="0.25" value={h} onChange={(e) => setH(e.target.value)} /></label>
+    {msg && <p className="msg">{msg}</p>}<button className="primary" onClick={save}>Save</button></div>
+}
 export function TempRule({ me }: { me: any }) {
   const qc = useQueryClient(), s = useSettings(), [hot, setHot] = useState(String(s.tempHotDays)), [warm, setWarm] = useState(String(s.tempWarmDays)), [msg, setMsg] = useState('')
   useEffect(() => { setHot(String(s.tempHotDays)); setWarm(String(s.tempWarmDays)) }, [s.tempHotDays, s.tempWarmDays])

@@ -7,6 +7,7 @@ import Keeper from './Keeper'
 import Correct from './Correct'
 import LockParts from './LockParts'
 import OrderTools from './OrderTools'
+import AckBar from './AckBar'
 import LowStock from './LowStock'
 import Spares from './Spares'
 import { AgeTag, ageLook } from '../lib/age'
@@ -15,7 +16,7 @@ const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const n = (x: any) => Number(x ?? 0).toLocaleString('en-IN')
 export default function Inventory({ me }: { me: any }) {
   const qc = useQueryClient(), isAdmin = me.role === 'admin', [msg, setMsg] = useState('')
-  const [modal, setModal] = useState<'' | 'receive' | 'keeper'>(''), [fix, setFix] = useState<any>(null)
+  const [modal, setModal] = useState<'' | 'receive' | 'keeper'>(''), [fix, setFix] = useState<any>(null), [recvId, setRecvId] = useState('')
   const [openId, setOpenId] = useState(''), [showMoves, setShowMoves] = useState(false), [view, setView] = useState<'prod' | 'pack'>('prod'), [sub, setSub] = useState<'prod' | 'spare'>('prod')
   const refresh = () => { qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['lowstock'] }); qc.invalidateQueries({ queryKey: ['dispatch'] }); qc.invalidateQueries({ queryKey: ['spares'] }) }
   // Left / Right handle versions: which locks already have them
@@ -74,6 +75,7 @@ export default function Inventory({ me }: { me: any }) {
           {r.packed_at
             ? <div className="okbox">Packing done · {fmtDateTime(r.packed_at)}</div>
             : <div className="bar"><button className="primary bigbtn go" onClick={() => packDone(r)}>Packing done</button><span className="muted">Reminders every {n(r.remind_hours)} h until you tap this</span></div>}
+          <AckBar kind="packing" id={r.inquiry_id} />
           <OrderTools r={r} me={me} />
           <div className="bar"><HandOverButton me={me} kind="packing" id={r.inquiry_id} currentId={r.packer_id} title={`Packing no. ${r.packing_no} · ${r.customer}`} /></div>
         </div>) })}
@@ -94,7 +96,7 @@ export default function Inventory({ me }: { me: any }) {
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <div style={{ minWidth: 0 }}><b>{p.product_name}</b><div className="muted">{see ? `${n(p.in_store)} in store${has ? ` (${part('Left')} Left · ${part('Right')} Right)` : ''} · ` : ''}{n(p.locked)} blocked{p.product_code ? ` · ${p.product_code}` : ''}</div>{low && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: reorder soon</div>}{see && bmap.get(p0.product_id) && <div className="muted" style={{ fontSize: 13 }}>From parts: can build {n(bmap.get(p0.product_id).can_build)} more{Number(bmap.get(p0.product_id).short_for_orders) > 0 && <b style={{ color: '#9b3b30' }}> · orders need {n(bmap.get(p0.product_id).short_for_orders)} more set(s) of parts</b>}</div>}</div>
             {see ? <div className="bignum" style={low ? { color: '#9b3b30' } : {}}>{n(p.free)}<small>free</small></div> : <div className="bignum">{n(p.locked)}<small>blocked</small></div>}</div>
-          {open && (canEdit || isAdmin) && <div className="bar" onClick={(e) => e.stopPropagation()}>{canEdit && <button onClick={() => setFix({ product: p, parts: has || /^RFID Hotel Lock/i.test(p.product_category ?? '') ? { left: part('Left'), right: part('Right') } : null })}>Fix total count</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && !has && <button onClick={() => addHandles(p.product_id)}>Enable Left &amp; Right</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && <button onClick={() => setRecipe({ product: p0, current: bmap.get(p0.product_id)?.parts ?? [] })}>Parts of this lock</button>}{isAdmin && has && <button className="link" onClick={() => removeHandles(p.product_id)}>Remove Left &amp; Right versions</button>}</div>}
+          {open && (canEdit || isAdmin) && <div className="bar" onClick={(e) => e.stopPropagation()}><button className="primary" onClick={() => { setRecvId(p0.product_id); setModal('receive') }}>+ Add stock</button>{canEdit && <button onClick={() => setFix({ product: p, parts: has || /^RFID Hotel Lock/i.test(p.product_category ?? '') ? { left: part('Left'), right: part('Right') } : null })}>Fix total count</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && !has && <button onClick={() => addHandles(p.product_id)}>Enable Left &amp; Right</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && <button onClick={() => setRecipe({ product: p0, current: bmap.get(p0.product_id)?.parts ?? [] })}>Parts of this lock</button>}{isAdmin && has && <button className="link" onClick={() => removeHandles(p.product_id)}>Remove Left &amp; Right versions</button>}</div>}
         </div>) })}
 
       <div><button className="link" onClick={() => setShowMoves(!showMoves)}>{showMoves ? 'Hide history' : 'Show stock history'}</button></div>
@@ -103,7 +105,7 @@ export default function Inventory({ me }: { me: any }) {
 
       </>}
 
-      {modal === 'receive' && <ReceiveStock products={(stock.data ?? []).filter((p: any) => !(handles.data ?? []).some((h: any) => h.id === p.product_id))} onClose={() => setModal('')} onDone={refresh} />}
+      {modal === 'receive' && <ReceiveStock products={(stock.data ?? []).filter((p: any) => !(handles.data ?? []).some((h: any) => h.id === p.product_id))} presetId={recvId} onClose={() => { setModal(''); setRecvId('') }} onDone={refresh} />}
       {modal === 'keeper' && <Keeper me={me} onClose={() => setModal('')} onDone={refresh} />}
       {recipe && <LockParts product={recipe.product} current={recipe.current} onClose={() => setRecipe(null)} onDone={refresh} />}
       {fix && <Correct product={fix.product} parts={fix.parts} onClose={() => setFix(null)} onDone={refresh} />}
