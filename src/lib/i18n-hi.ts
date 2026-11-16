@@ -535,6 +535,7 @@ const HI: Record<string, string> = {
 "Requested More Information": "और जानकारी मांगी",
 "Approval Pending": "मंज़ूरी बाकी",
 "Total inquiries": "कुल इन्क्वायरी",
+"Inquiries in process": "चालू इन्क्वायरी",
 "New today": "आज की नई",
 "Quotations pending": "बाकी कोटेशन",
 "Active inquiries": "चालू इन्क्वायरी",

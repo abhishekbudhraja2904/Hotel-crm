@@ -48,7 +48,7 @@ export default function Inquiries({ me, startFu = false }: { me: any; startFu?: 
   })
   const ATT_HOURS = 4
   const notAtt = (r: any) => !r.attended_at && !['Order Confirmed', 'Lost'].includes(r.sales_stage) && Date.now() - new Date(r.created_at).getTime() > ATT_HOURS * 3600000
-  const rows = data.filter((r: any) => (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
+  const rows = data.filter((r: any) => !r.dispatched_at && (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
     JSON.stringify(r).toLowerCase().includes(q.toLowerCase()))
 
   const money = useMoney()
@@ -110,7 +110,7 @@ export default function Inquiries({ me, startFu = false }: { me: any; startFu?: 
       {msg && <p className="msg">{msg}</p>}
       {isLoading && <p>Loading…</p>}
       {error && <p className="msg">{(error as any).message}</p>}
-      {!isLoading && !rows.length && <p className="empty">No inquiries yet.</p>}
+      {!isLoading && !rows.length && <p className="empty">No inquiries in process. Dispatched orders are under Old customers.</p>}
       {rows.map((r: any) => (
         <div className="card" key={r.id}>
           <div className="row"><b>{r.inquiry_number}</b><span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>{isAdmin && notAtt(r) && <span className="pill" style={{ background: '#fde2e2', color: '#b42318' }}>Not attended yet</span>}{!['Order Confirmed', 'Lost'].includes(r.sales_stage) && (() => { const t = tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays), L = TEMP_LOOK[t]; return L ? <span className="pill" style={{ background: L.bg, color: L.fg }}>{L.icon} {t}</span> : null })()}<span className={`pill ${r.priority}`}>{r.priority}</span></span></div>

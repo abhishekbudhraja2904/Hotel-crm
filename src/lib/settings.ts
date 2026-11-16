@@ -11,7 +11,7 @@ export const DEFAULT_MID = ['Qualified','Technical Discussion','Quotation Prepar
 // Dashboard number tiles. Built-in kinds count things the app already knows; 'stage' tiles count inquiries in the chosen stages.
 export type Tile = { id: string; label: string; kind: 'total' | 'today' | 'active' | 'due_today' | 'overdue' | 'stage'; stages?: string[]; period?: 'all' | 'month' | 'today'; hidden?: boolean }
 export const DEFAULT_TILES: Tile[] = [
-  { id: 'total', label: 'Total inquiries', kind: 'total' }, { id: 'today', label: 'New today', kind: 'today' }, { id: 'active', label: 'Active', kind: 'active' },
+  { id: 'total', label: 'Inquiries in process', kind: 'total' }, { id: 'today', label: 'New today', kind: 'today' }, { id: 'active', label: 'Active', kind: 'active' },
   { id: 'due', label: 'Follow-ups due today', kind: 'due_today' }, { id: 'overdue', label: 'Overdue follow-ups', kind: 'overdue' },
   { id: 'quotes', label: 'Quotations pending', kind: 'stage', stages: ['Quotation Sent'], period: 'all' },
   { id: 'confirmed', label: 'Orders confirmed', kind: 'stage', stages: ['Order Confirmed'], period: 'all' },

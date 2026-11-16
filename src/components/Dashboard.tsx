@@ -10,7 +10,7 @@ export default function Dashboard({ me }: { me?: any }) {
   const latest = useQuery({ queryKey: ['inquiries', 'latest'], queryFn: async () => {
     const { data, error } = await supabase.from('inquiries').select('id,inquiry_number,sales_stage,updated_at,dispatched_at,packing_no,customers(customer_name,phone_number)').is('archived_at', null).order('updated_at', { ascending: false }).limit(10); if (error) throw error; return data as any[] } })
   const inq = useQuery({ queryKey: ['inquiries', 'dash'], queryFn: async () => {
-    const { data, error } = await supabase.from('inquiries').select('sales_stage,created_at,updated_at,lost_reason').is('archived_at', null); if (error) throw error; return data } })
+    const { data, error } = await supabase.from('inquiries').select('sales_stage,created_at,updated_at,lost_reason,dispatched_at').is('archived_at', null); if (error) throw error; return data } })
   const fu = useQuery({ queryKey: ['followups', 'dash'], queryFn: async () => {
     const { data, error } = await supabase.from('followups').select('scheduled_at').eq('status', 'Pending'); if (error) throw error; return data } })
   // Confirmed orders that are not paid in full yet (admin only). Words only: no amounts.
@@ -27,7 +27,7 @@ export default function Dashboard({ me }: { me?: any }) {
   const isMonth = (s: string) => { const d = new Date(s); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() }
   const I = inq.data, closed = ['Order Confirmed', 'Lost']
   const count = (t: Tile): number => {
-    if (t.kind === 'total') return I.length
+    if (t.kind === 'total') return I.filter((r) => !r.dispatched_at && r.sales_stage !== 'Lost').length // only inquiries still in process; dispatched orders live under Old customers
     if (t.kind === 'today') return I.filter((r) => +new Date(r.created_at) >= t0).length
     if (t.kind === 'active') return I.filter((r) => !closed.includes(r.sales_stage) && r.sales_stage !== 'On Hold').length
     if (t.kind === 'due_today') return fu.data.filter((f) => +new Date(f.scheduled_at) >= now && +new Date(f.scheduled_at) <= t1).length
