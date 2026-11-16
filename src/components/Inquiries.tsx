@@ -118,10 +118,25 @@ export default function Inquiries({ me }: { me: any }) {
           <InquiryBar r={r} stages={STAGES} money={money.data} />
           {r.sales_stage === 'Order Confirmed' && (() => { const m = money.data?.[r.id]; return <div className="row"><div className="muted">{r.packing_no ? <>Packing no. <b>{r.packing_no}</b></> : null}{m?.due && m.status !== 'Paid in full' ? ` · payment due ${fmtDate(m.due)}` : ''}</div><span style={{ display: 'flex', gap: 10 }}><button className="link" onClick={() => setPayFor(r)}>Payments</button>{me.role !== 'service' && <button className="link" onClick={() => setDispFor(r)}>Dispatch</button>}</span></div> })()}
           {r.sales_stage === 'Lost' && r.lost_reason && <div className="muted">Lost: {r.lost_reason}{r.lost_note ? ` · ${r.lost_note}` : ''}</div>}
-          <div className="row">
+          <div style={{ display: 'grid', gap: 8 }}>
             <select value={r.sales_stage} onChange={(e) => changeStage(r, e.target.value)}>{(STAGES.includes(r.sales_stage) ? STAGES : [...STAGES, r.sales_stage]).map((s: string) => <option key={s}>{s}</option>)}</select>
-            <button className="link" onClick={() => setFuFor(r)}>+ Follow-up</button><button className="link" onClick={() => setNotesFor(r)}>📝 Notes</button>{r.dispatched_at && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setReorderFor({ customerId: r.customer_id, name: r.customers?.customer_name ?? '', inquiryId: r.id })}>Repeat order</button>}{r.inquiry_source === 'IndiaMART' && (me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => openMail(r)}>Original email</button>}{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setAppFor(r)}>Customer app</button>}{me.role !== 'service' && <button className="link" onClick={() => setQuoFor(r)}>Quotations</button>}{(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button className="link" onClick={() => setEditFor(r)}>Edit items</button>}
-            {isAdmin && <><select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select><button className="link" onClick={() => archive(r)}>Archive</button><button className="link" onClick={() => del(r)}>Delete</button></>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <button onClick={() => setFuFor(r)}>+ Follow-up</button>
+              <button onClick={() => setNotesFor(r)}>📝 Notes</button>
+            </div>
+            <details onClick={(e) => { if ((e.target as HTMLElement).tagName === 'BUTTON') (e.currentTarget as HTMLDetailsElement).open = false }}>
+              <summary style={{ cursor: 'pointer', padding: '6px 0', fontWeight: 600 }}>More ▾</summary>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+                {r.dispatched_at && (me.role === 'admin' || me.role === 'sales') && <button onClick={() => setReorderFor({ customerId: r.customer_id, name: r.customers?.customer_name ?? '', inquiryId: r.id })}>Repeat order</button>}
+                {r.inquiry_source === 'IndiaMART' && (me.role === 'admin' || me.role === 'sales') && <button onClick={() => openMail(r)}>Original email</button>}
+                {(me.role === 'admin' || me.role === 'sales') && <button onClick={() => setAppFor(r)}>Customer app</button>}
+                {me.role !== 'service' && <button onClick={() => setQuoFor(r)}>Quotations</button>}
+                {(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button onClick={() => setEditFor(r)}>Edit items</button>}
+                {isAdmin && <button onClick={() => archive(r)}>Archive</button>}
+                {isAdmin && <button onClick={() => del(r)} style={{ color: '#9b3b30' }}>Delete</button>}
+                {isAdmin && <label style={{ gridColumn: '1 / -1' }}>Assigned to<select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>}
+              </div>
+            </details>
           </div>
         </div>
       ))}
