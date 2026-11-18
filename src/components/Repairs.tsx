@@ -9,6 +9,7 @@ import { CustomerPick, useEmps } from './Pickers'
 import { HandOverButton } from './Reassign'
 import AckBar from './AckBar'
 import { AgeTag, ageLook } from '../lib/age'
+import { isMine, mineCls, MineTag, mineFirst } from '../lib/mine'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const pillOf = (s: string) => (s === 'Done' ? 'Done' : s === 'In progress' ? 'In progress' : 'To do')
 // Repair boxes: a box arrives, is given to a service employee, who lists each piece, what was wrong, what was repaired and the spare parts used.
@@ -21,9 +22,10 @@ export default function Repairs({ me }: { me: any }) {
     <button className="primary bigbtn go" onClick={() => setForm(true)}>+ Add repair box</button>
     {boxes.data && !boxes.data.length && <p className="empty">No repair boxes yet.</p>}
     {boxes.error && <p className="msg">{(boxes.error as any).message}</p>}
-    {boxes.data?.map((b) => { const done = b.status === 'Done', a = ageLook(b.created_at, done), its: any[] = b.repair_items ?? [], open = openId === b.id
-      return <div className="card tap" key={b.id} style={a.style} onClick={() => setOpenId(open ? '' : b.id)}>
+    {mineFirst(boxes.data, (b) => isMine(me, b.assigned_to), (b) => b.status === 'Done').map((b) => { const done = b.status === 'Done', a = ageLook(b.created_at, done), its: any[] = b.repair_items ?? [], open = openId === b.id, mine = isMine(me, b.assigned_to) && !done
+      return <div className={`card tap${mineCls(mine)}`} key={b.id} style={a.style} onClick={() => setOpenId(open ? '' : b.id)}>
         <div className="row"><b>Repair box no. {b.box_no}</b><span className={`pill${done ? '' : ' Medium'}`}>{pillOf(b.status)}</span></div>
+        <MineTag mine={mine} />
         <div><b>{b.customer_name}</b>{b.city ? ` · ${b.city}` : ''}</div>
         <AgeTag since={b.created_at} finished={done} />
         {b.notes && <div className="muted">{b.notes}</div>}

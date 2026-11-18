@@ -191,3 +191,8 @@ nav .a-cust{--ac:#1E5A8C}
 
 .tapx{cursor:pointer}.tapx:hover{background:rgba(0,0,0,.03)}
 a:not([href]){cursor:pointer;text-decoration:underline}
+/* Work given to the person signed in: thick blue frame + "YOUR WORK" tag */
+.card.mine{outline:3px solid #1E5A8C;outline-offset:-3px;box-shadow:0 0 0 3px #1E5A8C33,0 4px 14px var(--shadow)}
+.minetag{justify-self:start;display:inline-block;background:#1E5A8C;color:#fff;font-weight:700;font-size:13px;letter-spacing:.06em;padding:3px 12px;border-radius:99px}
+:root[data-theme=dark] .card.mine{outline-color:#5FA8E0;box-shadow:0 0 0 3px #5FA8E033}
+:root[data-theme=dark] .minetag{background:#5FA8E0;color:#0F1A24}

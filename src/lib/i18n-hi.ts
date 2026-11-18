@@ -1,5 +1,8 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+"⭐ YOUR WORK": "⭐ आपका काम",
+"My work": "मेरा काम",
+"Mine": "मेरा काम",
 "Add": "जोड़ें",
 "Cancel": "रद्द करें",
 "Close": "बंद करें",

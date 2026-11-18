@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isMine, mineCls, MineTag, mineFirst } from '../lib/mine'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { fmtDate, fmtDateTime } from '../lib/dates'
@@ -60,9 +61,10 @@ export default function Inventory({ me, start = '' }: { me: any; start?: string 
       {view === 'pack' && <>
       <h3>Orders to pack and collect ({queue.data?.length ?? 0})</h3>
       {queue.data && !queue.data.length && <p className="empty">Nothing is assigned to you right now.</p>}
-      {queue.data?.map((r: any) => { const col = r.state === 'collect'; return (
-        <div className="card" key={r.inquiry_id} style={{ borderLeftColor: col ? '#3f6b4a' : '#8A6F52', ...ageLook(r.since).style }}>
+      {mineFirst(queue.data, (r: any) => isMine(me, r.packer_id)).map((r: any) => { const col = r.state === 'collect', mine = isMine(me, r.packer_id) && !r.packed_at; return (
+        <div className={`card${mineCls(mine)}`} key={r.inquiry_id} style={{ borderLeftColor: col ? '#3f6b4a' : '#8A6F52', ...ageLook(r.since).style }}>
           <div className="row"><span className="muted">Packing number</span><span className={`pill${col ? '' : ' Medium'}`}>{col ? 'COLLECT' : 'PACK'}</span></div>
+          <MineTag mine={mine} />
           <div className="pack-big">{r.packing_no ?? '—'}</div>
           {col ? <div className="okbox">Packed and fully paid. Collect this order, it is ready to go.</div>
             : <div className="warnbox">Pack the items below and mark every carton with packing number <b>{r.packing_no}</b>.</div>}

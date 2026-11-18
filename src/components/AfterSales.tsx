@@ -12,6 +12,7 @@ import { CustomerPick, useEmps, useEmpsAndDesk, useDesk, useCustomers } from './
 import { HandOverButton } from './Reassign'
 import { AgeTag, ageLook } from '../lib/age'
 import { CustomerTicketBar } from './CustomerApp'
+import { isMine, mineCls, MineTag, mineFirst } from '../lib/mine'
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const today = () => isoDate()
 const inWarranty = (u?: string | null) => !!u && u >= today()
@@ -36,8 +37,9 @@ export default function AfterSales({ me, start = '' }: { me: any; start?: string
       {tab === 'inst' && <>
         {canWrite && <button className="primary bigbtn go" onClick={() => setForm('inst')}>+ Give installation work</button>}
         {inst.data && !inst.data.length && <p className="empty">No installations recorded yet.</p>}
-        {inst.data?.map((i) => <div className="card tap" key={i.id} style={{ borderLeftColor: inWarranty(i.warranty_until) ? '#6B8F72' : '#8b8f86', ...ageLook(i.created_at, i.status === 'Completed').style }} onClick={() => setOpenId(openId === i.id ? '' : i.id)}>
+        {mineFirst(inst.data, (i) => isMine(me, i.technician_id), (i) => i.status === 'Completed').map((i) => <div className={`card tap${mineCls(isMine(me, i.technician_id) && i.status !== 'Completed')}`} key={i.id} style={{ borderLeftColor: inWarranty(i.warranty_until) ? '#6B8F72' : '#8b8f86', ...ageLook(i.created_at, i.status === 'Completed').style }} onClick={() => setOpenId(openId === i.id ? '' : i.id)}>
           <div className="row"><b>{one(one(i.inquiries)?.customers)?.customer_name ?? i.site_name}</b><span className={`pill${i.status === 'Completed' ? '' : ' Medium'}`}>{i.status === 'Completed' ? (inWarranty(i.warranty_until) ? 'Completed · in warranty' : 'Completed · warranty over') : i.job_updates?.length ? 'Partly done' : 'To do'}</span></div>
+          <MineTag mine={isMine(me, i.technician_id) && i.status !== 'Completed'} />
           <AgeTag since={i.created_at} finished={i.status === 'Completed'} />
           {i.what && <div>{i.what}</div>}
           <div className="muted">{[i.site_name, one(one(i.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(i.giver)?.employee_name ? ` · Given by ${one(i.giver).employee_name}` : ''}</div>
@@ -56,10 +58,11 @@ export default function AfterSales({ me, start = '' }: { me: any; start?: string
         </div>)}</>}
       {tab === 'tix' && <>
         <button className="primary bigbtn go" onClick={() => setForm('tix')}>+ New service ticket</button>
-        <div className="bar">{([['', 'All'], ['Software', 'Software'], ['Technical', 'Technical'], ...(isDesk ? [['mine', 'Mine']] : [])] as [string, string][]).map(([k, l]) => <button key={k} className={kindF === k ? 'primary' : ''} onClick={() => setKindF(k as any)}>{l}{tix.data ? ` (${tix.data.filter((t) => k === '' ? true : k === 'mine' ? t.assigned_to === me.id : t.kind === k).filter((t) => t.status !== 'Fixed').length})` : ''}</button>)}</div>
+        <div className="bar">{([['', 'All'], ['Software', 'Software'], ['Technical', 'Technical'], ...(isDesk || me.role === 'service' ? [['mine', 'Mine']] : [])] as [string, string][]).map(([k, l]) => <button key={k} className={kindF === k ? 'primary' : ''} onClick={() => setKindF(k as any)}>{l}{tix.data ? ` (${tix.data.filter((t) => k === '' ? true : k === 'mine' ? t.assigned_to === me.id : t.kind === k).filter((t) => t.status !== 'Fixed').length})` : ''}</button>)}</div>
         {tix.data && !tix.data.length && <p className="empty">No tickets.</p>}
-        {tix.data?.filter((t) => kindF === '' ? true : kindF === 'mine' ? t.assigned_to === me.id : t.kind === kindF).map((t) => { const w = one(t.installations)?.warranty_until; return <div className="card" key={t.id} style={{ borderLeftColor: t.priority === 'High' ? '#9b3b30' : '#8A6F52', opacity: t.status === 'Fixed' ? 0.7 : 1, ...ageLook(t.opened_at, t.status === 'Fixed').style }}>
+        {mineFirst(tix.data?.filter((t) => kindF === '' ? true : kindF === 'mine' ? t.assigned_to === me.id : t.kind === kindF), (t) => isMine(me, t.assigned_to), (t) => t.status === 'Fixed').map((t) => { const w = one(t.installations)?.warranty_until; return <div className={`card${mineCls(isMine(me, t.assigned_to) && t.status !== 'Fixed')}`} key={t.id} style={{ borderLeftColor: t.priority === 'High' ? '#9b3b30' : '#8A6F52', opacity: t.status === 'Fixed' ? 0.7 : 1, ...ageLook(t.opened_at, t.status === 'Fixed').style }}>
           <div className="row"><b>Ticket S-{String(t.seq).padStart(3, '0')} <span className="pill" style={{ marginLeft: 6 }}>{t.kind === 'Software' ? '💻 Software' : '🔧 Technical'}</span></b><span className={`pill ${t.priority === 'High' ? 'Urgent' : t.priority}`}>{t.priority}</span></div>
+          <MineTag mine={isMine(me, t.assigned_to) && t.status !== 'Fixed'} />
           <div style={{ fontSize: 16 }}>{t.title}</div>
           <AgeTag since={t.opened_at} finished={t.status === 'Fixed'} />
           <div className="muted">{[t.site_name, one(one(one(t.installations)?.inquiries)?.customers)?.city].filter(Boolean).join(' · ')}{one(t.giver)?.employee_name ? ` · Given by ${one(t.giver).employee_name}` : ''}</div>
