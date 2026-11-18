@@ -27,7 +27,7 @@ export default function Repairs({ me }: { me: any }) {
         <div><b>{b.customer_name}</b>{b.city ? ` · ${b.city}` : ''}</div>
         <AgeTag since={b.created_at} finished={done} />
         {b.notes && <div className="muted">{b.notes}</div>}
-        <div className="muted">Received {fmtDate(b.received_on)}{b.courier ? ` · ${b.courier}` : ''} · {its.length} piece{its.length === 1 ? '' : 's'}{its.length ? `, ${its.filter((i) => i.status === 'Repaired').length} repaired` : ''}</div>
+        <div className="muted">Received {fmtDate(b.received_on)}{b.courier ? ` · ${b.courier}` : ''} · {its.length ? `${its.length} piece${its.length === 1 ? '' : 's'} listed, ${its.filter((i) => i.status === 'Repaired').length} repaired` : 'No pieces listed yet. Tap “Pieces in the box” to add them'}</div>
         {one(b.ticket) && <div className="muted">🎫 From ticket S-{String(one(b.ticket).seq).padStart(3, '0')} · {one(b.ticket).title}</div>}
         <div className="muted">Given to {one(b.assigned)?.employee_name ?? 'nobody yet'}{one(b.giver)?.employee_name ? ` · by ${one(b.giver).employee_name}` : ''}</div>
         {!done && <AckBar kind="repair" id={b.id} />}
