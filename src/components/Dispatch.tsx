@@ -9,7 +9,7 @@ const n = (x: any) => Number(x ?? 0).toLocaleString('en-IN')
 // Sales / admin: mark the order (or part of it) ready to dispatch, and later note the docket number and courier.
 export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: any; onClose: () => void }) {
   const qc = useQueryClient(), canAct = me.role === 'admin' || me.role === 'sales'
-  const [msg, setMsg] = useState(''), [qty, setQty] = useState<Record<string, string>>({}), [busy, setBusy] = useState(false), [dk, setDk] = useState<Record<string, { no: string; courier: string }>>({})
+  const [msg, setMsg] = useState(''), [qty, setQty] = useState<Record<string, string>>({}), [busy, setBusy] = useState(false), [dk, setDk] = useState<Record<string, { no: string; courier: string; how?: string }>>({})
   const bal = useQuery({ queryKey: ['dispatch', 'bal', inquiry.id], queryFn: async () => { const { data, error } = await supabase.rpc('order_balance', { p_inq: inquiry.id }); if (error) throw error; return data as any[] } })
   const parts = useQuery({ queryKey: ['dispatch', 'parts', inquiry.id], queryFn: async () => {
     const { data, error } = await supabase.from('dispatch_parts').select('id,part_no,status,ready_at,sent_at,docket_no,courier_name,docket_at,dispatch_part_items(id,product_name,quantity,unit)').eq('inquiry_id', inquiry.id).order('part_no'); if (error) throw error; return data as any[] } })
@@ -25,6 +25,7 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
     const { error } = await supabase.rpc('cancel_packing', { p_inq: inquiry.id, p_reason: why }); setMsg(error ? error.message : 'Packing cancelled. You can assign it again when ready.'); refresh()
   }
   async function setPacker(id: string) { const { error } = await supabase.rpc('assign_packer', { p_inq: inquiry.id, p_emp: id || null }); setMsg(error ? error.message : ''); qc.invalidateQueries({ queryKey: ['dispatch'] }) }
+  async function packDone() { if (!confirm(`Packing no. ${pk.data?.packing_no ?? ''} is fully packed?`)) return; const { error } = await supabase.rpc('mark_packing_done', { p_inq: inquiry.id }); setMsg(error ? error.message : 'Packing done.'); refresh() }
   const refresh = () => { qc.invalidateQueries({ queryKey: ['dispatch'] }); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['inventory'] }) }
   const rem = (bal.data ?? []).filter((b) => Number(b.remaining) > 0)
   const val = (b: any) => qty[b.product_id] ?? String(Number(b.remaining))
@@ -36,10 +37,12 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
   }
   async function cancel(id: string) { if (!confirm('Take this part back (it is not dispatched yet)?')) return; const { error } = await supabase.rpc('cancel_ready', { p_part: id }); setMsg(error ? error.message : ''); refresh() }
   async function dispatchNow(id: string) {
-    const v = dk[id] ?? { no: '', courier: '' }
-    if (!v.courier.trim() || !v.no.trim()) return setMsg('Enter the courier name and the docket number to dispatch.')
-    if (!confirm('Dispatch this part? Stock will be reduced and the docket saved.')) return
-    const { error } = await supabase.rpc('dispatch_part', { p_part: id, p_docket: v.no, p_courier: v.courier }); setMsg(error ? error.message : 'Dispatched.'); refresh()
+    const v = dk[id] ?? { no: '', courier: '' }, how = v.how ?? 'Courier'
+    if (how === 'Courier' && (!v.courier.trim() || !v.no.trim())) return setMsg('Enter the courier name and the docket number to dispatch.')
+    if (how === 'Porter' && !v.no.trim()) return setMsg('Enter the Porter booking ID or the driver and vehicle number.')
+    if (how === 'Self pickup' && !v.no.trim()) return setMsg('Enter the name of the person who picked it up.')
+    if (!confirm('Dispatch this part? Stock will be reduced.')) return
+    const { error } = await supabase.rpc('dispatch_part', { p_part: id, p_docket: v.no.trim(), p_courier: how === 'Courier' ? v.courier.trim() : how }); setMsg(error ? error.message : 'Dispatched.'); refresh()
   }
   async function docket(id: string, p: any) {
     const v = dk[id] ?? { no: p.docket_no ?? '', courier: p.courier_name ?? '' }
@@ -51,10 +54,11 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
       <div className="row"><h3 style={{ margin: 0 }}>Dispatch</h3><button className="link" onClick={onClose}>Close</button></div>
       <WhoFor inquiry={inquiry} />
       {pk.data?.packing_no ? <div><div className="muted">Packing number for this whole order</div><div className="pack-big">{pk.data.packing_no}</div></div> : <p className="muted">No packing number yet.</p>}
-      {canAct && <label>Packing assigned to<select value={pk.data?.packer_id ?? ''} onChange={(e) => setPacker(e.target.value)}><option value="">Not assigned</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{wl(t.id, t.employee_name)}</option>)}</select></label>}
+      {canAct && <label>Packing assigned to<select value={pk.data?.packer_id ?? ''} onChange={(e) => setPacker(e.target.value)}><option value="">Not assigned</option><option value={me.id}>🙋 Myself (self packing)</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{wl(t.id, t.employee_name)}</option>)}</select></label>}
       {msg && <div className="warnbox" style={{ fontWeight: 600 }}>{msg}{/Left \/ Right/.test(msg) && <div className="muted" style={{ fontWeight: 400 }}>Open Inventory → Packing, find this order and use “Left / Right” to say how many of each handle, then assign packing again.</div>}</div>}
       {canAct && pk.data?.packer_id && (pk.data.packed_at
         ? <div className="okbox">Packing done · {fmtDateTime(pk.data.packed_at)}</div>
+        : pk.data.packer_id === me.id ? <button className="primary bigbtn go" onClick={packDone}>✅ Packing done (I packed it)</button>
         : <div className="bar"><label style={{ flex: 1 }}>Remind every (hours, until packing is done)<input type="number" min="0.5" max="72" step="0.5" value={rem2 ?? String(pk.data.pack_remind_hours ?? settings.packReminderHours)} onChange={(e) => setRem2(e.target.value)} /></label><button onClick={saveRemind}>Save</button></div>)}
       {canAct && (pk.data?.packer_id || (parts.data ?? []).some((p: any) => p.status === 'ready')) && <div><button className="link" style={{ color: '#9b3b30' }} onClick={cancelPacking}>Cancel packing (made a mistake)</button></div>}
       {bal.isLoading && <p className="empty">Loading…</p>}
@@ -77,8 +81,11 @@ export default function Dispatch({ me, inquiry, onClose }: { me: any; inquiry: a
           <div className="muted">Marked ready {fmtDateTime(p.ready_at)}</div>
           {(p.dispatch_part_items ?? []).map((i: any) => <div key={i.id}>{n(i.quantity)}{i.unit ? ` ${i.unit}` : ''} × {i.product_name}</div>)}
           {p.status === 'ready' && canAct && <div style={{ display: 'grid', gap: 6 }}>
-            <label>Courier / shipping service *<input value={v.courier} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, courier: e.target.value } })} /></label>
-            <label>Docket no. *<input value={v.no} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, no: e.target.value } })} /></label>
+            <div className="bar">{['Courier', 'Porter', 'Self pickup'].map((h) => <button key={h} type="button" className={(v.how ?? 'Courier') === h ? 'primary' : ''} onClick={() => setDk({ ...dk, [p.id]: { ...v, how: h } })}>{h === 'Courier' ? '🚚 Courier' : h === 'Porter' ? '🛵 Porter' : '🙋 Self pickup'}</button>)}</div>
+            {(v.how ?? 'Courier') === 'Courier' && <><label>Courier / shipping service *<input value={v.courier} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, courier: e.target.value } })} /></label>
+            <label>Docket no. *<input value={v.no} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, no: e.target.value } })} /></label></>}
+            {v.how === 'Porter' && <label>Porter booking ID / driver and vehicle no. *<input value={v.no} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, no: e.target.value } })} /></label>}
+            {v.how === 'Self pickup' && <label>Picked up by (name) *<input value={v.no} onChange={(e) => setDk({ ...dk, [p.id]: { ...v, no: e.target.value } })} /></label>}
             <button className="primary" onClick={() => dispatchNow(p.id)}>Dispatch</button>
             <button className="link" onClick={() => cancel(p.id)}>Take this part back</button></div>}
           {p.status === 'dispatched' && (canAct ? <div style={{ display: 'grid', gap: 6 }}>

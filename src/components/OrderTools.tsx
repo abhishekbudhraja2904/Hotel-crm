@@ -14,7 +14,7 @@ export default function OrderTools({ r, me }: { r: any; me: any }) {
   async function assign(id: string) { const { error } = await supabase.rpc('assign_packer', { p_inq: r.inquiry_id, p_emp: id || null }); setMsg(error ? error.message : 'Packing assigned.'); refresh() }
   return <div style={{ display: 'grid', gap: 8 }} onClick={(e) => e.stopPropagation()}>
     <div className="bar"><button onClick={() => setModal('items')}>Edit items</button><button onClick={() => setModal('hand')}>Left / Right</button></div>
-    <label>Packing assigned to<select value={r.packer_id ?? ''} onChange={(e) => assign(e.target.value)}><option value="">Not assigned</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{wl(t.id, t.employee_name)}</option>)}</select></label>
+    <label>Packing assigned to<select value={r.packer_id ?? ''} onChange={(e) => assign(e.target.value)}><option value="">Not assigned</option><option value={me.id}>🙋 Myself (self packing)</option>{techs.data?.map((t: any) => <option key={t.id} value={t.id}>{wl(t.id, t.employee_name)}</option>)}</select></label>
     {msg && <p className="msg" style={{ margin: 0 }}>{msg}</p>}
     {modal === 'items' && <EditItems id={r.inquiry_id} onClose={() => setModal('')} onDone={refresh} />}
     {modal === 'hand' && <Handles id={r.inquiry_id} onClose={() => setModal('')} onDone={refresh} />}

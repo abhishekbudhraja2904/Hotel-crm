@@ -1,5 +1,13 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+"🙋 Myself (self packing)": "🙋 मैं खुद (खुद पैकिंग)",
+"Choose who packs…": "कौन पैक करेगा चुनें…",
+"✅ Packing done (I packed it)": "✅ पैकिंग हो गई (मैंने पैक किया)",
+"🚚 Courier": "🚚 कूरियर",
+"🛵 Porter": "🛵 पोर्टर",
+"🙋 Self pickup": "🙋 खुद ले गए",
+"Porter booking ID / driver and vehicle no. *": "पोर्टर बुकिंग ID / ड्राइवर और गाड़ी नं. *",
+"Picked up by (name) *": "किसने लिया (नाम) *",
 "⚠️ Work needing attention": "⚠️ ध्यान देने वाला काम",
 "✅ Everyone is on their work": "✅ सब अपने काम पर हैं",
 "All work is acknowledged, every repair box is opened, and nothing is stuck.": "सारा काम स्वीकार हो चुका है, हर रिपेयर बॉक्स खुल चुका है, और कुछ भी अटका नहीं है।",
