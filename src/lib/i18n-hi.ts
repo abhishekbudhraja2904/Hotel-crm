@@ -2,7 +2,7 @@
 const HI: Record<string, string> = {
 "⚠️ Who is not doing the work": "⚠️ कौन काम नहीं कर रहा",
 "✅ Everyone is on their work": "✅ सब अपने काम पर हैं",
-"All work is acknowledged and every repair box has been opened.": "सारा काम स्वीकार हो चुका है और हर रिपेयर बॉक्स खुल चुका है।",
+"All work is acknowledged, every repair box is opened, and nothing is stuck.": "सारा काम स्वीकार हो चुका है, हर रिपेयर बॉक्स खुल चुका है, और कुछ भी अटका नहीं है।",
 "Note (what the customer says is wrong)": "नोट (ग्राहक के अनुसार क्या खराब है)",
 "The service person who gets this box opens it and lists every piece inside.": "जिस सर्विस वाले को यह बॉक्स मिलेगा, वह इसे खोलकर अंदर का हर सामान लिखेगा।",
 "Open the box and list every piece inside it.": "बॉक्स खोलें और अंदर का हर सामान लिखें।",
