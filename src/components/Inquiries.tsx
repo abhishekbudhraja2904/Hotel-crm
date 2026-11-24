@@ -146,7 +146,7 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
                 {me.role !== 'service' && <button onClick={() => setQuoFor(r)}>Quotations</button>}
                 {(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed')) && <button onClick={() => setEditFor(r)}>Edit items</button>}
                 {isAdmin && <button onClick={() => archive(r)}>Archive</button>}
-                {isAdmin && <button onClick={() => del(r)} style={{ color: '#9b3b30' }}>Delete</button>}
+                {(isAdmin || (me.role === 'sales' && r.sales_stage !== 'Order Confirmed' && !r.packing_no && !r.dispatched_at)) && <button onClick={() => del(r)} style={{ color: '#9b3b30' }}>Delete</button>}
                 {isAdmin && <label style={{ gridColumn: '1 / -1' }}>Assigned to<select value={r.assigned_to ?? ''} onChange={(e) => reassign(r, e.target.value)}><option value="">Unassigned</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>}
               </div>
             </details>
