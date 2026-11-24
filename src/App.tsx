@@ -48,7 +48,12 @@ function Shell({ session }: { session: any }) {
     return () => { clearInterval(i); document.removeEventListener('visibilitychange', v) }
   }, [me?.id, me?.active, !!cs.data, manual])
   useEffect(() => { if (me?.active) { const t = setTimeout(() => maybeAutoDownload(me), 4000); return () => clearTimeout(t) } }, [me?.id])
-  const signOut = async () => { try { await supabase.rpc('clock_out') } catch {} await supabase.auth.signOut() }
+  // On sign-out, unlink this phone from phone alerts, so the next person who signs in here never gets this person's alerts.
+  const signOut = async () => {
+    try { await supabase.rpc('clock_out') } catch {}
+    try { if ('serviceWorker' in navigator) { const reg = await navigator.serviceWorker.getRegistration(); const sub = await reg?.pushManager.getSubscription(); if (sub) { await supabase.rpc('remove_push_subscription', { p_endpoint: sub.endpoint }); await sub.unsubscribe() } } } catch {}
+    await supabase.auth.signOut()
+  }
   const canInv = useQuery({ queryKey: ['inventory', 'can'], enabled: !!me?.active, queryFn: async () => !!(await supabase.rpc('can_update_inventory')).data })
   if (isLoading) return <p className="pad">Loading…</p>
   if (me?.active && cs.isLoading) return <p className="pad">Loading…</p>
