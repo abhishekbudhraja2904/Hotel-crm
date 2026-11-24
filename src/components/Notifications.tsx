@@ -69,16 +69,19 @@ export function Bell() {
   </>
 }
 // A pop-up for the newest unread alert from the last day. After "OK" it is marked read and never pops up again, on any device.
-export function NotifyPopup() {
+export function NotifyPopup({ me }: { me: any }) {
   const { data } = useNotes(), read = useRead(), qc = useQueryClient()
   // Instant: the moment a notification is saved for me, refresh the bell and the packing cards (no waiting for the 30-second check).
   useEffect(() => {
-    const ch = supabase.channel('my-notifications').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+    // Only my own notifications: the sound and the refresh happen only for work given to me, never for someone else's.
+    if (!me?.id) return
+    const ch = supabase.channel(`my-notifications-${me.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `employee_id=eq.${me.id}` }, (p: any) => {
+      if (p?.new?.employee_id && p.new.employee_id !== me.id) return
       qc.invalidateQueries({ queryKey: KEY }); qc.invalidateQueries({ queryKey: ['inventory'] }); qc.invalidateQueries({ queryKey: ['aftersales'] })
       playHermora()
     }).subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [qc])
+  }, [qc, me?.id])
   const fresh = (data ?? []).filter((n) => !n.read_at && Date.now() - new Date(n.created_at).getTime() < 24 * 3600 * 1000)
   const a = fresh[0]
   // Allow sound after the first tap anywhere; urgent alerts keep ringing every few seconds until OK is pressed.
