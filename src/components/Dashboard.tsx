@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useSettings, Tile } from '../lib/settings'
 import LowStock from './LowStock'
+import NotDoingWork from './NotDoingWork'
 import Overview from './Overview'
 import InquiryBar, { useMoney } from './Progress'
 import { fmtDate, isoDate } from '../lib/dates'
@@ -41,6 +42,7 @@ export default function Dashboard({ me, go }: { me?: any; go?: (tab: string, fil
   for (const r of lost) { const k = r.lost_reason || 'Not recorded'; counts[k] = (counts[k] ?? 0) + 1 }
   const rows = Object.entries(counts).sort((a, b) => b[1] - a[1])
   return <>
+    {isAdmin && <NotDoingWork go={go} />}
     {(me?.role === 'admin' || me?.role === 'sales') && go && <Overview me={me} go={go} />}
     <LowStock detail={isAdmin || !!canInv.data} />
     <div className="stats">{cards.map(([k, v]) => <div className="stat" key={k}><b>{v}</b><span className="muted">{k}</span></div>)}</div>
