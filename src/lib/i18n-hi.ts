@@ -1,5 +1,7 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+"Blocked for": "किसके लिए ब्लॉक",
+"No open orders found.": "कोई खुला ऑर्डर नहीं मिला।",
 "🙋 Myself (self packing)": "🙋 मैं खुद (खुद पैकिंग)",
 "Choose who packs…": "कौन पैक करेगा चुनें…",
 "✅ Packing done (I packed it)": "✅ पैकिंग हो गई (मैंने पैक किया)",

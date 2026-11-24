@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import BlockedFor from './BlockedFor'
 import { isMine, mineCls, MineTag, mineFirst } from '../lib/mine'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -96,9 +97,10 @@ export default function Inventory({ me, start = '' }: { me: any; start?: string 
         return (
         <div className="card tap" key={p.product_id} style={{ borderLeftColor: low ? '#9b3b30' : '#6B8F72' }} onClick={() => setOpenId(open ? '' : p.product_id)}>
           <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <div style={{ minWidth: 0 }}><b>{p.product_name}</b><div className="muted">{see ? `${n(p.in_store)} in store${has ? ` (${part('Left')} Left · ${part('Right')} Right)` : ''} · ` : ''}{n(p.locked)} blocked{p.product_code ? ` · ${p.product_code}` : ''}</div>{low && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: reorder soon</div>}{see && bmap.get(p0.product_id) && <div className="muted" style={{ fontSize: 13 }}>From parts: can build {n(bmap.get(p0.product_id).can_build)} more{Number(bmap.get(p0.product_id).short_for_orders) > 0 && <b style={{ color: '#9b3b30' }}> · orders need {n(bmap.get(p0.product_id).short_for_orders)} more set(s) of parts</b>}</div>}</div>
+            <div style={{ minWidth: 0 }}><b>{p.product_name}</b><div className="muted">{see ? `${n(p.in_store)} in store${has ? ` (${part('Left')} Left · ${part('Right')} Right)` : ''} · ` : ''}{n(p.locked)} blocked{isAdmin && Number(p.locked) > 0 && !open ? ' (tap to see for whom)' : ''}{p.product_code ? ` · ${p.product_code}` : ''}</div>{low && <div style={{ color: '#9b3b30', fontWeight: 600, fontSize: 13 }}>LOW: reorder soon</div>}{see && bmap.get(p0.product_id) && <div className="muted" style={{ fontSize: 13 }}>From parts: can build {n(bmap.get(p0.product_id).can_build)} more{Number(bmap.get(p0.product_id).short_for_orders) > 0 && <b style={{ color: '#9b3b30' }}> · orders need {n(bmap.get(p0.product_id).short_for_orders)} more set(s) of parts</b>}</div>}</div>
             {see ? <div className="bignum" style={low ? { color: '#9b3b30' } : {}}>{n(p.free)}<small>free</small></div> : <div className="bignum">{n(p.locked)}<small>blocked</small></div>}</div>
           {open && (canEdit || isAdmin) && <div className="bar" onClick={(e) => e.stopPropagation()}><button className="primary" onClick={() => { setRecvId(p0.product_id); setModal('receive') }}>+ Add stock</button>{canEdit && <button onClick={() => setFix({ product: p, parts: has || /^RFID Hotel Lock/i.test(p.product_category ?? '') ? { left: part('Left'), right: part('Right') } : null })}>Fix total count</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && !has && <button onClick={() => addHandles(p.product_id)}>Enable Left &amp; Right</button>}{isAdmin && /^RFID Hotel Lock/i.test(p.product_category ?? '') && <button onClick={() => setRecipe({ product: p0, current: bmap.get(p0.product_id)?.parts ?? [] })}>Parts of this lock</button>}{isAdmin && has && <button className="link" onClick={() => removeHandles(p.product_id)}>Remove Left &amp; Right versions</button>}</div>}
+          {open && isAdmin && Number(p.locked) > 0 && <BlockedFor ids={[p0.product_id, ...kids.map((k: any) => k.product_id)]} hand={hhand as Map<string, string>} />}
         </div>) })}
 
       <div><button className="link" onClick={() => setShowMoves(!showMoves)}>{showMoves ? 'Hide history' : 'Show stock history'}</button></div>
