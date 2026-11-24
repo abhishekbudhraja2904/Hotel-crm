@@ -32,7 +32,7 @@ export default function ServiceTeam() {
     {error && <p className="msg">{(error as any).message}</p>}
     {data && !shown.length && <p className="empty">Nothing matches.</p>}
     {shown.map((r) => <div className="card" key={r.id} style={ageLook(since(r), fin(r)).style}>
-      <div className="row"><b>{r.customer ?? r.site_name}{r.city ? ` · ${r.city}` : ''}</b><span>{isNew(r) && <span className="pill Urgent">New</span>} <span className="pill">{r.status === 'Scheduled' ? 'To do' : r.status}</span></span></div>
+      <div className="row"><b>{r.customer ?? r.site_name ?? r.customer_name ?? 'Customer not named'}{r.city ? ` · ${r.city}` : ''}</b><span>{isNew(r) && <span className="pill Urgent">New</span>} <span className="pill">{r.status === 'Scheduled' ? 'To do' : r.status}</span></span></div>
       {tab === 'tix' && <div>S-{String(r.seq).padStart(3, '0')} · {r.title}</div>}
       {tab === 'rep' && <div>Repair box no. {r.box_no} · {r.pieces} piece{r.pieces === 1 ? '' : 's'}, {r.repaired} repaired{r.courier ? ` · ${r.courier}` : ''}</div>}
       <AgeTag since={since(r)} finished={fin(r)} />
