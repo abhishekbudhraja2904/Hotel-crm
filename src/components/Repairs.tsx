@@ -33,7 +33,11 @@ export default function Repairs({ me }: { me: any }) {
         {one(b.ticket) && <div className="muted">🎫 From ticket S-{String(one(b.ticket).seq).padStart(3, '0')} · {one(b.ticket).title}</div>}
         <div className="muted">Given to {one(b.assigned)?.employee_name ?? 'nobody yet'}{one(b.giver)?.employee_name ? ` · by ${one(b.giver).employee_name}` : ''}</div>
         {!done && <AckBar kind="repair" id={b.id} />}
-        {!done && mayWork(b) && <div className="bar" onClick={(e) => e.stopPropagation()}>
+        {!done && mayWork(b) && !its.length && <div className="warnbox" style={{ display: 'grid', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+          <b>Open the box and list every piece inside it.</b>
+          <button className="primary bigbtn go" onClick={() => setPieces(b)}>📦 List the pieces in the box</button></div>}
+        {!done && !mayWork(b) && !its.length && <div className="muted">⏳ Waiting for {one(b.assigned)?.employee_name ?? 'the service person'} to open the box and list the pieces</div>}
+        {!done && mayWork(b) && its.length > 0 && <div className="bar" onClick={(e) => e.stopPropagation()}>
           <button className="primary" onClick={() => setPieces(b)}>Pieces in the box</button>
           <button className="primary" onClick={() => setUpd({ box: b.id, title: `Repair box no. ${b.box_no} · ${b.customer_name}` })}>Update work (partly / fully done)</button></div>}
         {(me.role === 'admin' || me.role === 'service' || me.role === 'service_admin') && <div className="bar" onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => setEditBox(b)}>✎ Edit</button></div>}
@@ -60,10 +64,11 @@ function BoxForm({ me, onClose, onDone }: { me: any; onClose: () => void; onDone
   return <div className="modal"><form className="card" onSubmit={save}><h3 style={{ margin: 0 }}>Add repair box</h3>
     <CustomerPick site={f.site} city={f.city} onChange={(site, city) => setF({ ...f, site, city })} />
     <label>Courier / how it came (optional)<input value={f.courier} onChange={(e) => setF({ ...f, courier: e.target.value })} placeholder="e.g. Blue Dart, docket no." /></label>
-    <label>Note (optional)<input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="e.g. 5 locks, customer says they do not open" /></label>
+    <label>Note (what the customer says is wrong)<input required value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="e.g. customer says 5 locks do not open" /></label>
+    <div className="muted">The service person who gets this box opens it and lists every piece inside.</div>
     <label>Give to<select value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })}><option value="">Not assigned yet</option>{emps.data?.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>
     <label>Received on<DateField value={f.on} onChange={(v) => setF({ ...f, on: v })} ariaLabel="Received on" /></label>
-    {err && <p className="msg">{err}</p>}<button className="primary" disabled={busy || !f.site.trim()}>{busy ? 'Saving…' : 'Add box'}</button><button type="button" className="link" onClick={onClose}>Cancel</button></form></div>
+    {err && <p className="msg">{err}</p>}<button className="primary" disabled={busy || !f.site.trim() || !f.notes.trim()}>{busy ? 'Saving…' : 'Add box'}</button><button type="button" className="link" onClick={onClose}>Cancel</button></form></div>
 }
 // The list of pieces in a box, and the form to add or change one.
 function Pieces({ box, onClose, onChanged }: { box: any; onClose: () => void; onChanged: () => void }) {

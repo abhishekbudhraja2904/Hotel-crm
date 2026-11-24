@@ -12,6 +12,7 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^Assigned by (.+)$/, (m) => `किसने दिया: ${m[1]}`],
   [/^Given to (.+) · planned (.+)$/, (m) => `दिया: ${m[1]} · तय तारीख ${m[2]}`],
   [/^Completed (\S+) by (.+) · warranty until (.+)$/, (m) => `पूरा हुआ ${m[1]}, ${m[2]} द्वारा · वारंटी ${m[3]} तक`],
+  [/^⏳ Waiting for (.+) to open the box and list the pieces$/, (m) => `⏳ ${m[1]} के बॉक्स खोलकर सामान लिखने का इंतज़ार`],
   [/^Opened (.+)$/, (m) => `खोला गया ${m[1]}`],
   [/^(\d+) more waiting in the bell$/, (m) => `${m[1]} और घंटी में इंतज़ार में`],
   [/^(\d+) more waiting$/, (m) => `${m[1]} और इंतज़ार में`],

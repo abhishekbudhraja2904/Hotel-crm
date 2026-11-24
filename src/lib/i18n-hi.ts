@@ -1,5 +1,9 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+"Note (what the customer says is wrong)": "नोट (ग्राहक के अनुसार क्या खराब है)",
+"The service person who gets this box opens it and lists every piece inside.": "जिस सर्विस वाले को यह बॉक्स मिलेगा, वह इसे खोलकर अंदर का हर सामान लिखेगा।",
+"Open the box and list every piece inside it.": "बॉक्स खोलें और अंदर का हर सामान लिखें।",
+"📦 List the pieces in the box": "📦 बॉक्स का सामान लिखें",
 "⭐ YOUR WORK": "⭐ आपका काम",
 "My work": "मेरा काम",
 "Mine": "मेरा काम",

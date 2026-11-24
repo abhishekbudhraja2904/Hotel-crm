@@ -167,8 +167,8 @@ function BoxFromTicket({ t, onClose, onDone }: { t: any; onClose: () => void; on
   return <div className="modal"><form className="card" onSubmit={save}><h3 style={{ margin: 0 }}>Send for repair</h3>
     <div className="muted">S-{String(t.seq).padStart(3, '0')} · {t.title} · {t.site_name}</div>
     <label>Courier / how it came<input value={f.courier} onChange={(e) => setF({ ...f, courier: e.target.value })} /></label>
-    <label>Notes<input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>
+    <label>Note (what the customer says is wrong)<input required value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>
     <label>Give the box to<select value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })}><option value="">Not assigned</option>{emps.data?.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select></label>
     <label>Received on (leave empty for today)<DateField value={f.on} onChange={(v) => setF({ ...f, on: v })} ariaLabel="Received on" /></label>
-    {err && <p className="msg">{err}</p>}<button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Open repair box'}</button><button type="button" className="link" onClick={onClose}>Cancel</button></form></div>
+    {err && <p className="msg">{err}</p>}<button className="primary" disabled={busy || !f.notes.trim()}>{busy ? 'Saving…' : 'Open repair box'}</button><button type="button" className="link" onClick={onClose}>Cancel</button></form></div>
 }
