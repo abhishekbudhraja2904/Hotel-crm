@@ -1,6 +1,6 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
-"⚠️ Who is not doing the work": "⚠️ कौन काम नहीं कर रहा",
+"⚠️ Work needing attention": "⚠️ ध्यान देने वाला काम",
 "✅ Everyone is on their work": "✅ सब अपने काम पर हैं",
 "All work is acknowledged, every repair box is opened, and nothing is stuck.": "सारा काम स्वीकार हो चुका है, हर रिपेयर बॉक्स खुल चुका है, और कुछ भी अटका नहीं है।",
 "Note (what the customer says is wrong)": "नोट (ग्राहक के अनुसार क्या खराब है)",

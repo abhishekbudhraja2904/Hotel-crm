@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAcks } from './AckBar'
-// Top of the owner's dashboard: "Who is not doing the work".
+// Top of the owner's dashboard: "Work needing attention".
 // 1. Work given to a service employee that they have not acknowledged yet.
 // 2. Repair boxes they acknowledged but never opened (no pieces listed), which means no work was done on them.
 // 3. Work acknowledged but with no progress for STUCK_DAYS days (no update saved, or packing still not done).
@@ -37,8 +37,8 @@ export default function NotDoingWork({ go }: { go?: (tab: string, filter?: strin
   const byEmp = new Map<string, Row[]>(); for (const r of rows) byEmp.set(r.emp, [...(byEmp.get(r.emp) ?? []), r])
   const people = [...byEmp.entries()].sort((a, b) => b[1].length - a[1].length)
   if (!people.length) return <div className="card" style={{ borderLeftColor: '#2F6B3A' }}><b>✅ Everyone is on their work</b><div className="muted">All work is acknowledged, every repair box is opened, and nothing is stuck.</div></div>
-  return <div className="card" style={{ borderLeftColor: '#b3261e', background: 'rgba(179,38,30,0.07)' }}>
-    <div className="row"><b style={{ fontSize: 18 }}>⚠️ Who is not doing the work</b><span className="pill Urgent">{rows.length}</span></div>
+  return <div className="card" style={{ borderLeftColor: '#b3261e', background: 'linear-gradient(rgba(179,38,30,0.07), rgba(179,38,30,0.07)), var(--card)' }}>
+    <div className="row"><b style={{ fontSize: 18 }}>⚠️ Work needing attention</b><span className="pill Urgent">{rows.length}</span></div>
     {people.map(([emp, list]) => <div key={emp} style={{ borderTop: '1px solid var(--line)', paddingTop: 8, display: 'grid', gap: 4 }}>
       <div className="row"><b style={{ fontSize: 16 }}>{emp}</b><span className="muted">{[['ack', 'not acknowledged'], ['box', 'box not opened'], ['stuck', 'no progress']].map(([k, l]) => [list.filter((r) => r.problem === k).length, l]).filter(([n]) => n).map(([n, l]) => `${n} ${l}`).join(' · ')}</span></div>
       {list.sort((a, b) => +new Date(a.since) - +new Date(b.since)).map((r, i) => <div key={i} className="tap" style={{ cursor: go ? 'pointer' : undefined }} onClick={() => go?.(r.tab, r.filter)}>
