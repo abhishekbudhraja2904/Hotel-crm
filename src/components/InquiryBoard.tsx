@@ -62,18 +62,18 @@ export default function InquiryBoard({ rows, columns, allStages, me, notes, mone
       hit(q.x, q.y); raf.current = requestAnimationFrame(tick) }
     raf.current = requestAnimationFrame(tick)
   }
-  const onMove = (e: PointerEvent) => { const s = g.current; if (!s || e.pointerId !== s.id) return
+  const pMove = (e: PointerEvent) => { const s = g.current; if (!s || e.pointerId !== s.id) return
     s.x = e.clientX; s.y = e.clientY
     if (!s.active) { const d = Math.hypot(e.clientX - s.x0, e.clientY - s.y0)
       if (s.touch) { if (d > 8) stop() } // a finger that moves before the hold is a scroll, not a drag
       else if (d > 5) begin(); return }
     setDrag((d: any) => d && { ...d, x: e.clientX, y: e.clientY }) }
-  const onUp = (e: PointerEvent) => { const s = g.current; if (!s || e.pointerId !== s.id) return
+  const pUp = (e: PointerEvent) => { const s = g.current; if (!s || e.pointerId !== s.id) return
     const { r, active, over: to } = s; stop()
     if (!active) return onOpen(r) // a tap: open the details
     if (to && to !== eff(r)) { if (!ASKS_FIRST.includes(to)) setOvr((o) => ({ ...o, [r.id]: to })); onMove(r, to) } }
-  const onCancel = () => stop()
-  latest.current = { onMove, onUp, onCancel }
+  const pCancel = () => stop()
+  latest.current = { onMove: pMove, onUp: pUp, onCancel: pCancel }
   useEffect(() => { const f = (e: TouchEvent) => { if (g.current?.active) e.preventDefault() } // no page scrolling while a card is being dragged
     window.addEventListener('touchmove', f, { passive: false }); return () => { window.removeEventListener('touchmove', f); cancelAnimationFrame(raf.current) } }, [])
   function down(e: React.PointerEvent, r: any) {
