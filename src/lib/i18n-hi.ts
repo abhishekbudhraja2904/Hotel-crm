@@ -1,5 +1,7 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+"Drop here": "यहाँ छोड़ें",
+"No note yet": "अभी कोई नोट नहीं",
 "All due": "सब बाकी",
 "Nothing due. 🎉": "कुछ बाकी नहीं। 🎉",
 "No follow-ups done yet.": "अभी कोई फॉलो-अप नहीं हुआ।",

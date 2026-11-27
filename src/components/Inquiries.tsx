@@ -18,6 +18,7 @@ import InquiryBar, { useMoney } from './Progress'
 import ItemsEditor, { ItemRow, newRow, rowsFromItems, useCatalogue } from './ItemsEditor'
 import Dispatch from './Dispatch'
 import Notes from './Notes'
+import InquiryBoard from './InquiryBoard'
 import FollowupInline from './FollowupInline'
 import CustomerApp from './CustomerApp'
 import EditCustomer from './EditCustomer'
@@ -30,22 +31,24 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const [view, setView] = useState<'list' | 'old'>(startFilter === 'old' ? 'old' : 'list'), [reorderFor, setReorderFor] = useState<any>(null)
-  const [emp, setEmp] = useState(startFilter.startsWith('emp:') ? startFilter.slice(4) : ''), [tf, setTf] = useState(startFilter.startsWith('temp:') ? startFilter.slice(5) : ''), [att, setAtt] = useState(startFilter === 'notatt' ? '1' : ''), [fuF, setFuF] = useState(['late', 'due', 'today', 'later', 'none'].includes(startFilter) ? startFilter : startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), cfg = useSettings()
+  const [emp, setEmp] = useState(startFilter.startsWith('emp:') ? startFilter.slice(4) : ''), [tf, setTf] = useState(startFilter.startsWith('temp:') ? startFilter.slice(5) : ''), [att, setAtt] = useState(startFilter === 'notatt' ? '1' : ''), [fuF, setFuF] = useState(['late', 'due', 'today', 'later', 'none'].includes(startFilter) ? startFilter : startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), [openId, setOpenId] = useState(''), cfg = useSettings()
   async function setNeeded(r: any, v: string) { const { error } = await supabase.from('inquiries').update({ needed_by: v || null }).eq('id', r.id); if (error) setMsg(error.message); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   const pendFu = useQuery({ queryKey: ['followups', 'pending'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('id,inquiry_id,assigned_to,followup_type,scheduled_at,notes,updated_at').eq('status', 'Pending').order('scheduled_at').limit(1000)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
   const fuState = (id: string) => { const f = pendFu.data?.get(id); if (!f) return 'none'; const t = +new Date(f.scheduled_at); return t < Date.now() ? 'late' : t <= new Date().setHours(23, 59, 59, 999) ? 'today' : 'later' }
   const lastFu = useQuery({ queryKey: ['followups', 'last'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('inquiry_id,outcome,completed_at').eq('status', 'Completed').order('completed_at', { ascending: false }).limit(500)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
   const [q, setQ] = useState(startFilter.startsWith('q:') ? startFilter.slice(2) : ''), [stage, setStage] = useState(startFilter.startsWith('stage:') ? startFilter.slice(6) : ''), [open, setOpen] = useState(false), [msg, setMsg] = useState('')
-  const { data = [], isLoading, error } = useQuery({
+  const { data = [], isLoading, error, dataUpdatedAt } = useQuery({
     queryKey: ['inquiries'],
     queryFn: async () => {
       const { data, error } = await supabase.from('inquiries')
-        .select('id,attended_at,created_at,needed_by,customer_id,inquiry_source,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
+        .select('id,attended_at,created_at,needed_by,customer_id,inquiry_source,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number,city),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
         .is('archived_at', null).order('created_at', { ascending: false }).limit(200)
       if (error) throw error
       return data
     }
   })
+  // Latest note on each inquiry (shown on the board card)
+  const latestNote = useQuery({ queryKey: ['inquiries', 'notes-latest'], queryFn: async () => { const m = new Map<string, any>(); for (const n of ((await supabase.from('inquiry_notes').select('inquiry_id,body,created_at,author:employees!created_by(employee_name)').order('created_at', { ascending: false }).limit(1500)).data ?? []) as any[]) if (!m.has(n.inquiry_id)) m.set(n.inquiry_id, n); return m } })
   const ATT_HOURS = 4
   const notAtt = (r: any) => !r.attended_at && !['Order Confirmed', 'Lost'].includes(r.sales_stage) && Date.now() - new Date(r.created_at).getTime() > ATT_HOURS * 3600000
   const rows = data.filter((r: any) => !r.dispatched_at && (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
@@ -94,25 +97,9 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
     window.open(me.role === 'admin' ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(mailbox)}#all/${id.data}` : `https://mail.google.com/mail/b/${encodeURIComponent(mailbox)}/u/0/#all/${id.data}`, '_blank')
   }
 
-  return (
-    <section>
-      {(me.role === 'admin' || me.role === 'sales') && <div className="bar"><button className={view === 'list' ? 'primary' : ''} onClick={() => setView('list')}>Inquiries</button><button className={view === 'old' ? 'primary' : ''} onClick={() => setView('old')}>Old customers</button></div>}
-      {view === 'list' ? <>
-      <div className="bar">
-        <input placeholder="Search inquiries…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select value={stage} onChange={(e) => setStage(e.target.value)}><option value="">All stages</option>{STAGES.map((s) => <option key={s}>{s}</option>)}</select>
-        <select value={fuF} onChange={(e) => setFuF(e.target.value)}><option value="">All follow-ups</option><option value="due">Due today + overdue</option><option value="late">Overdue</option><option value="today">Due today</option><option value="later">Upcoming</option><option value="none">No follow-up set</option></select>
-        <select value={tf} onChange={(e) => setTf(e.target.value)}><option value="">Hot / Warm / Cold</option><option value="Hot">🔥 Hot</option><option value="Warm">🌤 Warm</option><option value="Cold">❄️ Cold</option><option value="None">No date set</option></select>
-        {isAdmin && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 14, color: 'inherit' }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={!!att} onChange={(e) => setAtt(e.target.checked ? '1' : '')} />Not attended</label>}
-        {isAdmin && <select value={emp} onChange={(e) => setEmp(e.target.value)}><option value="">All staff</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select>}
-        <button className="primary" onClick={() => setOpen(true)}>+ Add inquiry</button>
-      </div>
-      {msg && <p className="msg">{msg}</p>}
-      {isLoading && <p>Loading…</p>}
-      {error && <p className="msg">{(error as any).message}</p>}
-      {!isLoading && !rows.length && <p className="empty">No inquiries in process. Dispatched orders are under Old customers.</p>}
-      {rows.map((r: any) => (
-        <div className="card" key={r.id}>
+  // The full card (everything the old list showed). On the board it opens in a pop-up when a card is tapped.
+  const renderCard = (r: any) => (
+        <div className="card">
           <div className="row"><b>{r.inquiry_number}</b><span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>{isAdmin && notAtt(r) && <span className="pill" style={{ background: '#fde2e2', color: '#b42318' }}>Not attended yet</span>}{!['Order Confirmed', 'Lost'].includes(r.sales_stage) && (() => { const t = tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays), L = TEMP_LOOK[t]; return L ? <span className="pill" style={{ background: L.bg, color: L.fg }}>{L.icon} {t}</span> : null })()}<span className={`pill ${r.priority}`}>{r.priority}</span></span></div>
           <div>
             <div className="row" style={{ flexWrap: 'nowrap' }}><b style={{ fontSize: 17 }}>{r.customers?.customer_name}</b>{(me.role === 'admin' || me.role === 'sales') && <button className="link" onClick={() => setCustFor(r)}>✎ Edit</button>}</div>
@@ -152,8 +139,31 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
             </details>
           </div>
         </div>
-      ))}
+  )
+  const openRow = data.find((r: any) => r.id === openId)
+
+  return (
+    <section>
+      {(me.role === 'admin' || me.role === 'sales') && <div className="bar"><button className={view === 'list' ? 'primary' : ''} onClick={() => setView('list')}>Inquiries</button><button className={view === 'old' ? 'primary' : ''} onClick={() => setView('old')}>Old customers</button></div>}
+      {view === 'list' ? <>
+      <div className="bar">
+        <input placeholder="Search inquiries…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select value={stage} onChange={(e) => setStage(e.target.value)}><option value="">All stages</option>{STAGES.map((s) => <option key={s}>{s}</option>)}</select>
+        <select value={fuF} onChange={(e) => setFuF(e.target.value)}><option value="">All follow-ups</option><option value="due">Due today + overdue</option><option value="late">Overdue</option><option value="today">Due today</option><option value="later">Upcoming</option><option value="none">No follow-up set</option></select>
+        <select value={tf} onChange={(e) => setTf(e.target.value)}><option value="">Hot / Warm / Cold</option><option value="Hot">🔥 Hot</option><option value="Warm">🌤 Warm</option><option value="Cold">❄️ Cold</option><option value="None">No date set</option></select>
+        {isAdmin && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 14, color: 'inherit' }}><input type="checkbox" style={{ width: 18, height: 18, padding: 0 }} checked={!!att} onChange={(e) => setAtt(e.target.checked ? '1' : '')} />Not attended</label>}
+        {isAdmin && <select value={emp} onChange={(e) => setEmp(e.target.value)}><option value="">All staff</option>{emps.map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select>}
+        <button className="primary" onClick={() => setOpen(true)}>+ Add inquiry</button>
+      </div>
+      {msg && <p className="msg">{msg}</p>}
+      {isLoading && <p>Loading…</p>}
+      {error && <p className="msg">{(error as any).message}</p>}
+      <InquiryBoard rows={rows} columns={stage ? [stage] : [...STAGES, ...[...new Set(data.map((r: any) => r.sales_stage))].filter((x: any) => !STAGES.includes(x))] as string[]} allStages={STAGES} me={me} notes={latestNote.data} version={dataUpdatedAt}
+        onMove={(r, to) => changeStage(r, to)} onOpen={(r) => setOpenId(r.id)} />
       </> : <OldCustomers me={me} onReorder={(c) => setReorderFor(c)} />}
+      {openRow && <div className="modal" onClick={() => setOpenId('')}><div style={{ maxWidth: 440, margin: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        {renderCard(openRow)}
+        <button className="primary" style={{ width: '100%' }} onClick={() => setOpenId('')}>Close</button></div></div>}
       {confirmFor && <ConfirmOrder inquiry={confirmFor} onClose={() => setConfirmFor(null)} onConfirm={async () => { const e = await moveStage(confirmFor, 'Order Confirmed'); qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['followups'] }); qc.invalidateQueries({ queryKey: ['inventory'] }); return e }} />}
       {quoFormFor && <QuoteForm inquiry={quoFormFor} onClose={() => setQuoFormFor(null)} onSaved={async () => { const e = await moveStage(quoFormFor, 'Quotation Sent'); qc.invalidateQueries({ queryKey: ['inquiries'] }); return e }} onSkip={async () => { const e = await moveStage(quoFormFor, 'Quotation Sent'); qc.invalidateQueries({ queryKey: ['inquiries'] }); return e }} />}
       {quoFor && <Quotes me={me} inquiry={quoFor} onClose={() => setQuoFor(null)} />}

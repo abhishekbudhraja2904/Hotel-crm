@@ -196,3 +196,16 @@ a:not([href]){cursor:pointer;text-decoration:underline}
 .minetag{justify-self:start;display:inline-block;background:#1E5A8C;color:#fff;font-weight:700;font-size:13px;letter-spacing:.06em;padding:3px 12px;border-radius:99px}
 :root[data-theme=dark] .card.mine{outline-color:#5FA8E0;box-shadow:0 0 0 3px #5FA8E033}
 :root[data-theme=dark] .minetag{background:#5FA8E0;color:#0F1A24}
+/* Inquiry board (drag and drop) */
+.kboard{display:flex;gap:10px;overflow-x:auto;align-items:stretch;padding-bottom:10px;margin:0 -2px;-webkit-overflow-scrolling:touch}
+.kcol{flex:0 0 272px;background:var(--page);border:1px solid var(--line);border-top:4px solid var(--sage);border-radius:10px;padding:8px;display:grid;align-content:start;gap:8px;min-height:260px}
+.kcol.over{outline:3px dashed var(--accent,#B9532F);outline-offset:-3px;background:var(--soft)}
+.kcard{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sage);border-radius:10px;padding:10px 12px;display:grid;gap:4px;box-shadow:0 1px 4px var(--shadow);cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.kcard input{user-select:text;-webkit-user-select:text}
+.kcard.dragging{opacity:.3}
+.kempty{text-align:center;padding:18px 0;border:1px dashed var(--line);border-radius:8px}
+.knote{display:grid;gap:4px;border-top:1px solid var(--line);margin-top:4px;padding-top:6px;cursor:default}
+.kbody{white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.krow{display:flex;gap:6px}.krow input{flex:1;min-width:0}
+.kghost{position:fixed;left:0;top:0;z-index:30;pointer-events:none;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sage);border-radius:10px;padding:10px 12px;display:grid;gap:4px;box-shadow:0 12px 28px #0006}
+@media (max-width:700px){.kcol{flex-basis:82vw}}
