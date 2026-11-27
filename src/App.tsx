@@ -68,7 +68,7 @@ function Shell({ session }: { session: any }) {
   const locked = manual && cs.data && !cs.data.clocked_in
   return (
     <>
-      <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<LangSwitch /><Bell /><span className="muted">{me.employee_name} ({me.role})</span>
+      <header><button className="burger" aria-label="Menu" onClick={() => setMenu(!menu)}>☰</button><img src="/logo.png" alt="" className="logo" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} /><b>{APP_NAME}</b>{/* live-sync status hidden: set to show again with <span className={`conn ${conn}`}>● {conn}</span> */}<LangSwitch /><span className="hbell"><Bell /></span><span className="muted">{me.employee_name} ({me.role})</span>
         <button className="link" onClick={signOut}>Sign out</button></header>
       {!locked && <NotifyPopup me={me} />}
       {locked && <LockBar status={cs.data} />}
