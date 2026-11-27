@@ -32,7 +32,7 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const [view, setView] = useState<'list' | 'old'>(startFilter === 'old' ? 'old' : 'list'), [reorderFor, setReorderFor] = useState<any>(null)
-  const [emp, setEmp] = useState(startFilter.startsWith('emp:') ? startFilter.slice(4) : ''), [tf, setTf] = useState(startFilter.startsWith('temp:') ? startFilter.slice(5) : ''), [att, setAtt] = useState(startFilter === 'notatt' ? '1' : ''), [fuF, setFuF] = useState(['late', 'due', 'today', 'later', 'none'].includes(startFilter) ? startFilter : startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), [openId, setOpenId] = useState(''), cfg = useSettings()
+  const [emp, setEmp] = useState(startFilter.startsWith('emp:') ? startFilter.slice(4) : ''), [tf, setTf] = useState(startFilter.startsWith('temp:') ? startFilter.slice(5) : ''), [att, setAtt] = useState(startFilter === 'notatt' ? '1' : ''), [fuF, setFuF] = useState(['late', 'due', 'today', 'later', 'none'].includes(startFilter) ? startFilter : startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), [openId, setOpenId] = useState(''), [newOnly, setNewOnly] = useState(startFilter === 'newtoday'), cfg = useSettings()
   async function setNeeded(r: any, v: string) { const { error } = await supabase.from('inquiries').update({ needed_by: v || null }).eq('id', r.id); if (error) setMsg(error.message); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   const pendFu = useQuery({ queryKey: ['followups', 'pending'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('id,inquiry_id,assigned_to,followup_type,scheduled_at,notes,updated_at').eq('status', 'Pending').order('scheduled_at').limit(1000)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
   const fuState = (id: string) => { const f = pendFu.data?.get(id); if (!f) return 'none'; const t = +new Date(f.scheduled_at); return t < Date.now() ? 'late' : t <= new Date().setHours(23, 59, 59, 999) ? 'today' : 'later' }
@@ -52,7 +52,7 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
   const latestNote = useQuery({ queryKey: ['inquiries', 'notes-latest'], queryFn: async () => { const m = new Map<string, any>(); for (const n of ((await supabase.from('inquiry_notes').select('inquiry_id,body,created_at,author:employees!created_by(employee_name)').order('created_at', { ascending: false }).limit(1500)).data ?? []) as any[]) if (!m.has(n.inquiry_id)) m.set(n.inquiry_id, n); return m } })
   const ATT_HOURS = 4
   const notAtt = (r: any) => !r.attended_at && !['Order Confirmed', 'Lost'].includes(r.sales_stage) && Date.now() - new Date(r.created_at).getTime() > ATT_HOURS * 3600000
-  const baseRows = data.filter((r: any) => !r.dispatched_at && (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
+  const baseRows = data.filter((r: any) => !r.dispatched_at && (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!newOnly || +new Date(r.created_at) >= new Date().setHours(0, 0, 0, 0)) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
     JSON.stringify(r).toLowerCase().includes(q.toLowerCase()))
   const rows = stage ? baseRows.filter((r: any) => r.sales_stage === stage) : baseRows
   const colsAll = [...STAGES, ...[...new Set(data.map((r: any) => r.sales_stage))].filter((x: any) => !STAGES.includes(x))] as string[]
@@ -162,7 +162,7 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
       {isLoading && <p>Loading…</p>}
       {error && <p className="msg">{(error as any).message}</p>}
       <div className="tiles">
-        <button className={`tile${!stage ? ' sel' : ''}`} style={{ borderTopColor: '#0F1F17' }} onClick={() => setStage('')}><b>{baseRows.length}</b><span>All</span></button>
+        <button className={`tile${!stage ? ' sel' : ''}`} style={{ borderTopColor: '#0F1F17' }} onClick={() => { setStage(''); setNewOnly(false) }}><b>{baseRows.length}</b><span>All</span></button>
         {colsAll.map((s) => <button key={s} className={`tile${stage === s ? ' sel' : ''}`} style={{ borderTopColor: stageColour(s, STAGES) }} onClick={() => setStage(stage === s ? '' : s)}><b>{baseRows.filter((r: any) => r.sales_stage === s).length}</b><span>{s}</span></button>)}
       </div>
       <InquiryBoard rows={rows} columns={stage ? [stage] : colsAll} allStages={STAGES} me={me} notes={latestNote.data} money={money.data} temp={(r: any) => tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays)} version={dataUpdatedAt}

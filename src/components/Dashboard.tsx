@@ -38,7 +38,16 @@ export default function Dashboard({ me, go }: { me?: any; go?: (tab: string, fil
     if (t.kind === 'overdue') return fu.data.filter((f) => +new Date(f.scheduled_at) < now).length
     return I.filter((r) => (t.stages ?? []).includes(r.sales_stage) && (!t.period || t.period === 'all' || (t.period === 'month' ? isMonth(r.updated_at) : +new Date(r.updated_at) >= t0))).length
   }
-  const cards: [string, number][] = tiles.filter((t) => !t.hidden).map((t) => [t.label, count(t)])
+  // Where a tile leads when tapped (nothing for roles that can't open the inquiries)
+  const open = (t: Tile): (() => void) | undefined => {
+    if (t.kind === 'due_today') return () => setFuWin('today')
+    if (t.kind === 'overdue') return () => setFuWin('late')
+    if (!go) return undefined
+    if (t.kind === 'today') return () => go('inq', 'newtoday')
+    if (t.kind === 'stage' && (t.stages ?? []).length === 1) return () => go('inq', 'stage:' + t.stages![0])
+    return () => go('inq')
+  }
+  const cards: [string, number, (() => void) | undefined][] = tiles.filter((t) => !t.hidden).map((t) => [t.label, count(t), open(t)])
   // Why inquiries are lost (all lost inquiries; older ones without a reason are grouped as "Not recorded")
   const lost = I.filter((r) => r.sales_stage === 'Lost'), counts: Record<string, number> = {}
   for (const r of lost) { const k = r.lost_reason || 'Not recorded'; counts[k] = (counts[k] ?? 0) + 1 }
@@ -48,7 +57,7 @@ export default function Dashboard({ me, go }: { me?: any; go?: (tab: string, fil
     {(me?.role === 'admin' || me?.role === 'sales') && go && <Overview me={me} go={go} onFollowups={setFuWin} />}
     {fuWin && <FollowupWindow me={me} start={fuWin} onClose={() => setFuWin('')} />}
     <LowStock detail={isAdmin || !!canInv.data} />
-    <div className="stats">{cards.map(([k, v]) => <div className="stat" key={k}><b>{v}</b><span className="muted">{k}</span></div>)}</div>
+    <div className="stats">{cards.map(([k, v, f]) => <div className="stat" key={k} onClick={f} style={{ cursor: f ? 'pointer' : 'default' }}><b>{v}</b><span className="muted">{k}</span></div>)}</div>
     {isAdmin && pend.data && pend.data.length > 0 && (() => { const today = isoDate()
       return <div id="pay-pending" className="card" style={{ borderLeftColor: '#8A6F52' }}><div className="row"><b>Payment pending</b><b>{pend.data.length}</b></div>
         <div className="muted">Confirmed orders that are not paid in full.</div>
