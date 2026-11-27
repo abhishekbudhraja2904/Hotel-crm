@@ -9,6 +9,7 @@ import ConfirmOrder from './ConfirmOrder'
 import Quotes from './Quotes'
 import QuoteForm from './QuoteForm'
 import { moveStage } from '../lib/stage'
+import { stageColour } from '../lib/stageColour'
 import { tempOf, TEMP_LOOK } from '../lib/temperature'
 import DateField from './DateField'
 import Reorder from './Reorder'
@@ -51,8 +52,10 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
   const latestNote = useQuery({ queryKey: ['inquiries', 'notes-latest'], queryFn: async () => { const m = new Map<string, any>(); for (const n of ((await supabase.from('inquiry_notes').select('inquiry_id,body,created_at,author:employees!created_by(employee_name)').order('created_at', { ascending: false }).limit(1500)).data ?? []) as any[]) if (!m.has(n.inquiry_id)) m.set(n.inquiry_id, n); return m } })
   const ATT_HOURS = 4
   const notAtt = (r: any) => !r.attended_at && !['Order Confirmed', 'Lost'].includes(r.sales_stage) && Date.now() - new Date(r.created_at).getTime() > ATT_HOURS * 3600000
-  const rows = data.filter((r: any) => !r.dispatched_at && (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!stage || r.sales_stage === stage) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
+  const baseRows = data.filter((r: any) => !r.dispatched_at && (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
     JSON.stringify(r).toLowerCase().includes(q.toLowerCase()))
+  const rows = stage ? baseRows.filter((r: any) => r.sales_stage === stage) : baseRows
+  const colsAll = [...STAGES, ...[...new Set(data.map((r: any) => r.sales_stage))].filter((x: any) => !STAGES.includes(x))] as string[]
 
   const money = useMoney()
   async function changeStage(r: any, next: string) {
@@ -158,7 +161,11 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
       {msg && <p className="msg">{msg}</p>}
       {isLoading && <p>Loading…</p>}
       {error && <p className="msg">{(error as any).message}</p>}
-      <InquiryBoard rows={rows} columns={stage ? [stage] : [...STAGES, ...[...new Set(data.map((r: any) => r.sales_stage))].filter((x: any) => !STAGES.includes(x))] as string[]} allStages={STAGES} me={me} notes={latestNote.data} money={money.data} temp={(r: any) => tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays)} version={dataUpdatedAt}
+      <div className="tiles">
+        <button className={`tile${!stage ? ' sel' : ''}`} style={{ borderTopColor: '#0F1F17' }} onClick={() => setStage('')}><b>{baseRows.length}</b><span>All</span></button>
+        {colsAll.map((s) => <button key={s} className={`tile${stage === s ? ' sel' : ''}`} style={{ borderTopColor: stageColour(s, STAGES) }} onClick={() => setStage(stage === s ? '' : s)}><b>{baseRows.filter((r: any) => r.sales_stage === s).length}</b><span>{s}</span></button>)}
+      </div>
+      <InquiryBoard rows={rows} columns={stage ? [stage] : colsAll} allStages={STAGES} me={me} notes={latestNote.data} money={money.data} temp={(r: any) => tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays)} version={dataUpdatedAt}
         onMove={(r, to) => changeStage(r, to)} onOpen={(r) => setOpenId(r.id)} />
       </> : <OldCustomers me={me} onReorder={(c) => setReorderFor(c)} />}
       {openRow && <div className="modal" onClick={() => setOpenId('')}><div style={{ maxWidth: 440, margin: 'auto' }} onClick={(e) => e.stopPropagation()}>
