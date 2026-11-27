@@ -213,6 +213,6 @@ a:not([href]){cursor:pointer;text-decoration:underline}
 .kcard.kt-Hot,.kghost.kt-Hot{border-left-color:#c0442e;background:linear-gradient(rgba(192,68,46,.16),rgba(192,68,46,.16)),var(--card)}
 .kcard.kt-Warm,.kghost.kt-Warm{border-left-color:#d39a22;background:linear-gradient(rgba(211,154,34,.17),rgba(211,154,34,.17)),var(--card)}
 .kcard.kt-Cold,.kghost.kt-Cold{border-left-color:#4a86a3;background:linear-gradient(rgba(74,134,163,.16),rgba(74,134,163,.16)),var(--card)}
-/* phone: the notification bell sits right after the menu button, so it can never wrap off screen or get pushed out by a long name */
+/* phone: the notification bell is pinned to the extreme top right of the header, so a long name or a wrapped header can never hide it */
 header .hbell{flex:0 0 auto;display:inline-flex}
-@media(max-width:767px){header .burger{order:-2}header .hbell{order:-1}header .muted{font-size:13px}}
+@media(max-width:767px){header{padding-right:52px}header .hbell{position:absolute;top:8px;right:8px;z-index:6}header .muted{font-size:13px}}
