@@ -3,11 +3,15 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { stageColour } from '../lib/stageColour'
 import { fmtDateTime } from '../lib/dates'
+import InquiryBar, { MoneyMap } from './Progress'
+import { TEMP_LOOK } from '../lib/temperature'
 // Inquiries as a drag-and-drop board: one column per stage. Each card shows only the inquiry number, the customer's
 // name, city and phone, plus the latest note with a box to add a new one. Tapping a card opens everything else in a pop-up.
 // Dragging uses pointer events so it works with a mouse and with a finger (on a phone: press and hold a card, then drag).
 const one = (x: any) => (Array.isArray(x) ? x[0] : x)
 const STOP = 'input,textarea,button,a,select,label,[data-nodrag]' // touching these never starts a drag or opens the pop-up
+const NO_TEMP = ['Order Confirmed', 'Lost'] // hot / warm / cold only matters while the order is still being won
+const RANK: Record<string, number> = { Hot: 0, Warm: 1, Cold: 2, None: 3 }
 const ASKS_FIRST = ['Lost', 'Order Confirmed', 'Quotation Sent'] // moving here opens a form first, so the card must not jump ahead
 
 function NoteBox({ r, note, me, editable }: { r: any; note?: any; me: any; editable: boolean }) {
@@ -25,23 +29,27 @@ function NoteBox({ r, note, me, editable }: { r: any; note?: any; me: any; edita
     {err && <div className="msg" style={{ fontSize: 12 }}>{err}</div>}
   </div>
 }
-function CardBody({ r, note, me, editable }: { r: any; note?: any; me: any; editable: boolean }) {
-  const c = one(r.customers)
+function CardBody({ r, note, me, editable, temp, money, stages }: { r: any; note?: any; me: any; editable: boolean; temp: string; money?: MoneyMap; stages: string[] }) {
+  const c = one(r.customers), L = TEMP_LOOK[temp]
   return <>
-    <b>{r.inquiry_number}</b>
+    <b>{L ? `${L.icon} ` : ''}{r.inquiry_number}</b>
     <b style={{ fontSize: 16 }}>{c?.customer_name ?? 'Customer'}</b>
     {c?.city && <div className="muted">📍 {c.city}</div>}
     {c?.phone_number && <a href={`tel:${c.phone_number}`} style={{ fontSize: 14 }}>📞 {c.phone_number}</a>}
+    {r.sales_stage === 'Order Confirmed' && <InquiryBar r={r} stages={stages} money={money} />}
     <NoteBox r={r} note={note} me={me} editable={editable} />
   </>
 }
-export default function InquiryBoard({ rows, columns, allStages, me, notes, version, onMove, onOpen }: { rows: any[]; columns: string[]; allStages: string[]; me: any; notes?: Map<string, any>; version: number; onMove: (r: any, stage: string) => void; onOpen: (r: any) => void }) {
+export default function InquiryBoard({ rows, columns, allStages, me, notes, money, temp, version, onMove, onOpen }: { rows: any[]; columns: string[]; allStages: string[]; me: any; notes?: Map<string, any>; money?: MoneyMap; temp: (r: any) => string; version: number; onMove: (r: any, stage: string) => void; onOpen: (r: any) => void }) {
   const [ovr, setOvr] = useState<Record<string, string>>({}), [drag, setDrag] = useState<any>(null), [over, setOver] = useState('')
   const latest = useRef<any>({})
   const w = useRef({ move: (e: PointerEvent) => latest.current.onMove(e), up: (e: PointerEvent) => latest.current.onUp(e), cancel: () => latest.current.onCancel() }).current // fixed identities so the listeners can be removed
   const g = useRef<any>(null), boardRef = useRef<HTMLDivElement>(null), raf = useRef(0)
   useEffect(() => setOvr({}), [version]) // fresh data from the server replaces any "moved ahead of time" cards
   const eff = (r: any) => ovr[r.id] ?? r.sales_stage
+  const tOf = (r: any, s: string) => (NO_TEMP.includes(s) ? '' : temp(r))
+  // Inside a column: hottest first, then warm, then cold, then no date; the soonest needed-by date first within each.
+  const sorted = (list: any[], s: string) => NO_TEMP.includes(s) ? list : list.map((r, i) => [r, i] as const).sort((a, b) => (RANK[temp(a[0])] ?? 3) - (RANK[temp(b[0])] ?? 3) || (a[0].needed_by ?? '9999').localeCompare(b[0].needed_by ?? '9999') || a[1] - b[1]).map((x) => x[0])
   const hit = (x: number, y: number) => { const el = document.elementsFromPoint(x, y).find((n) => (n as HTMLElement).dataset?.stage !== undefined) as HTMLElement | undefined; const s = el?.dataset.stage ?? ''; if (g.current) g.current.over = s; setOver(s) }
   const stop = () => { clearTimeout(g.current?.timer); cancelAnimationFrame(raf.current); window.removeEventListener('pointermove', w.move); window.removeEventListener('pointerup', w.up); window.removeEventListener('pointercancel', w.cancel); g.current = null; setDrag(null); setOver('') }
   const begin = () => {
@@ -76,16 +84,17 @@ export default function InquiryBoard({ rows, columns, allStages, me, notes, vers
     window.addEventListener('pointermove', w.move); window.addEventListener('pointerup', w.up); window.addEventListener('pointercancel', w.cancel)
   }
   return <>
+    <div className="muted" style={{ fontSize: 13, margin: '2px 0 6px' }}>🔥 Hot · 🌤 Warm · ❄️ Cold, by the date the customer needs it. Hottest first in each column.</div>
     <div className="kboard" ref={boardRef}>
-      {columns.map((s) => { const list = rows.filter((r) => eff(r) === s)
+      {columns.map((s) => { const list = sorted(rows.filter((r) => eff(r) === s), s)
         return <div key={s} data-stage={s} className={`kcol${over === s ? ' over' : ''}`} style={{ borderTopColor: stageColour(s, allStages) }}>
           <div className="row"><b>{s}</b><span className="pill">{list.length}</span></div>
-          {list.map((r) => <div key={r.id} className={`kcard${drag?.r.id === r.id ? ' dragging' : ''}`} style={{ borderLeftColor: stageColour(s, allStages) }} onPointerDown={(e) => down(e, r)} onContextMenu={(e) => { if (!(e.target as HTMLElement).closest(STOP)) e.preventDefault() }}>
-            <CardBody r={r} note={notes?.get(r.id)} me={me} editable />
+          {list.map((r) => <div key={r.id} className={`kcard${tOf(r, s) ? ' kt-' + tOf(r, s) : ''}${drag?.r.id === r.id ? ' dragging' : ''}`} style={tOf(r, s) ? undefined : { borderLeftColor: stageColour(s, allStages) }} onPointerDown={(e) => down(e, r)} onContextMenu={(e) => { if (!(e.target as HTMLElement).closest(STOP)) e.preventDefault() }}>
+            <CardBody r={r} note={notes?.get(r.id)} me={me} editable temp={tOf(r, s)} money={money} stages={allStages} />
           </div>)}
           {!list.length && <div className="muted kempty">Drop here</div>}
         </div> })}
     </div>
-    {drag && <div className="kghost" style={{ width: drag.w, transform: `translate(${drag.x - drag.dx}px, ${drag.y - drag.dy}px) rotate(2deg)` }}><CardBody r={drag.r} note={notes?.get(drag.r.id)} me={me} editable={false} /></div>}
+    {drag && <div className={`kghost${tOf(drag.r, eff(drag.r)) ? ' kt-' + tOf(drag.r, eff(drag.r)) : ''}`} style={{ width: drag.w, transform: `translate(${drag.x - drag.dx}px, ${drag.y - drag.dy}px) rotate(2deg)` }}><CardBody r={drag.r} note={notes?.get(drag.r.id)} me={me} editable={false} temp={tOf(drag.r, eff(drag.r))} money={money} stages={allStages} /></div>}
   </>
 }

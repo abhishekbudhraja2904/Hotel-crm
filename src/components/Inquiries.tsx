@@ -158,7 +158,7 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
       {msg && <p className="msg">{msg}</p>}
       {isLoading && <p>Loading…</p>}
       {error && <p className="msg">{(error as any).message}</p>}
-      <InquiryBoard rows={rows} columns={stage ? [stage] : [...STAGES, ...[...new Set(data.map((r: any) => r.sales_stage))].filter((x: any) => !STAGES.includes(x))] as string[]} allStages={STAGES} me={me} notes={latestNote.data} version={dataUpdatedAt}
+      <InquiryBoard rows={rows} columns={stage ? [stage] : [...STAGES, ...[...new Set(data.map((r: any) => r.sales_stage))].filter((x: any) => !STAGES.includes(x))] as string[]} allStages={STAGES} me={me} notes={latestNote.data} money={money.data} temp={(r: any) => tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays)} version={dataUpdatedAt}
         onMove={(r, to) => changeStage(r, to)} onOpen={(r) => setOpenId(r.id)} />
       </> : <OldCustomers me={me} onReorder={(c) => setReorderFor(c)} />}
       {openRow && <div className="modal" onClick={() => setOpenId('')}><div style={{ maxWidth: 440, margin: 'auto' }} onClick={(e) => e.stopPropagation()}>
