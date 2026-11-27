@@ -1,5 +1,15 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+  "+ Add old customer": "+ पुराना ग्राहक जोड़ें",
+  "Add old customer": "पुराना ग्राहक जोड़ें",
+  "Save old customer": "पुराना ग्राहक सेव करें",
+  "Date they bought": "खरीदने की तारीख",
+  "What they bought": "उन्होंने क्या खरीदा",
+  "+ Add another product": "+ एक और प्रोडक्ट जोड़ें",
+  "Other (older model, type the name)": "अन्य (पुराना मॉडल, नाम लिखें)",
+  "📱 Customer app": "📱 कस्टमर ऐप",
+  "Salesperson": "सेल्सपर्सन",
+  "Choose product…": "प्रोडक्ट चुनें…",
   '🔥 Hot · 🌤 Warm · ❄️ Cold, by the date the customer needs it. Hottest first in each column.': '🔥 गर्म · 🌤 गुनगुना · ❄️ ठंडा — ग्राहक को जिस तारीख तक चाहिए उसके अनुसार। हर कॉलम में सबसे गर्म ऊपर।',
 "Drop here": "यहाँ छोड़ें",
 "No note yet": "अभी कोई नोट नहीं",

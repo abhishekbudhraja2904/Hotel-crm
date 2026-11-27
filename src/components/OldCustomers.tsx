@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { fmtDate } from '../lib/dates'
+import AddOldCustomer from './AddOldCustomer'
+import CustomerApp from './CustomerApp'
 const BANDS: { key: string; label: string; hint: string; max: number }[] = [
   { key: 'recent', label: 'Recent buyers', hint: 'ordered in the last 3 months', max: 90 },
   { key: 'due', label: 'Due for a reorder', hint: 'last order 3 to 6 months ago', max: 180 },
@@ -9,7 +11,7 @@ const BANDS: { key: string; label: string; hint: string; max: number }[] = [
   { key: 'dormant', label: 'Dormant', hint: 'last order over a year ago', max: 1e9 }]
 // Old customers grouped by how long ago they last ordered. Admin sees every client (and can pick a salesperson); sales see their own.
 export default function OldCustomers({ me, onReorder }: { me: any; onReorder: (c: any) => void }) {
-  const isAdmin = me.role === 'admin', [emp, setEmp] = useState(''), [q, setQ] = useState(''), [open, setOpen] = useState<string | null>('due')
+  const isAdmin = me.role === 'admin', [emp, setEmp] = useState(''), [q, setQ] = useState(''), [open, setOpen] = useState<string | null>('due'), [adding, setAdding] = useState(false), [appFor, setAppFor] = useState<{ id: string; name: string } | null>(null), [added, setAdded] = useState('')
   const emps = useQuery({ queryKey: ['employees'], enabled: isAdmin, queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const orders = useQuery({ queryKey: ['old-customers'], queryFn: async () => {
     const { data, error } = await supabase.from('inquiries').select('id,customer_id,assigned_to,dispatched_at,updated_at,customers(customer_name,phone_number,city),assigned:employees!assigned_to(employee_name),inquiry_items(product_name_snapshot,quantity)').eq('sales_stage', 'Order Confirmed').order('updated_at', { ascending: false }).limit(3000)
@@ -26,6 +28,10 @@ export default function OldCustomers({ me, onReorder }: { me: any; onReorder: (c
   const list = [...map.values()].map((c) => ({ ...c, days: Math.floor((now - +c.last) / 864e5) })).filter((c) => !s || `${c.cu?.customer_name} ${c.cu?.phone_number ?? ''} ${c.cu?.city ?? ''}`.toLowerCase().includes(s)).sort((a, b) => a.days - b.days)
   const band = (c: any) => BANDS.find((b) => c.days <= b.max)!.key
   return <div style={{ display: 'grid', gap: 10 }}>
+    <div className="bar"><button className="primary" onClick={() => setAdding(true)}>+ Add old customer</button></div>
+    {added && <p className="msg">{added}</p>}
+    {adding && <AddOldCustomer me={me} onClose={() => setAdding(false)} onAdded={(c) => { setAdding(false); setAdded(`${c.name} added. Open "Customer app" on their card to send the app invite.`); }} />}
+    {appFor && <CustomerApp customerId={appFor.id} name={appFor.name} isAdmin={isAdmin} onClose={() => setAppFor(null)} />}
     <div className="bar"><input placeholder="Search old customers…" value={q} onChange={(e) => setQ(e.target.value)} />
       {isAdmin && <select value={emp} onChange={(e) => setEmp(e.target.value)}><option value="">All staff</option>{(emps.data ?? []).map((x: any) => <option key={x.id} value={x.id}>{x.employee_name}</option>)}</select>}</div>
     <p className="muted" style={{ margin: 0 }}>{list.length} customers who have ordered before{isAdmin && !emp ? '' : isAdmin ? ' (this salesperson)' : ' (your clients)'}. Open a group to see them and start a repeat order.</p>
@@ -39,7 +45,7 @@ export default function OldCustomers({ me, onReorder }: { me: any; onReorder: (c
           <div className="row"><b>{c.cu?.customer_name ?? 'Customer'}{c.n > 1 && <span className="pill" style={{ marginLeft: 8 }}>{c.n} orders</span>}</b>{c.cu?.phone_number && <a href={`tel:${c.cu.phone_number}`}>📞 {c.cu.phone_number}</a>}</div>
           <div className="muted">{c.cu?.city ? `${c.cu.city} · ` : ''}Last order {fmtDate(c.last.toISOString().slice(0, 10))} ({c.days} days ago){isAdmin && c.by ? ` · ${c.by}` : ''}</div>
           <div className="muted">{c.items.map((i: any) => `${i.product_name_snapshot} × ${i.quantity ?? '?'}`).join(', ') || 'No items recorded'}</div>
-          <div className="bar"><button className="primary" onClick={() => onReorder({ customerId: c.id, name: c.cu?.customer_name ?? '', inquiryId: c.lastInq })}>Repeat order</button></div>
+          <div className="bar"><button className="primary" onClick={() => onReorder({ customerId: c.id, name: c.cu?.customer_name ?? '', inquiryId: c.lastInq })}>Repeat order</button><button onClick={() => setAppFor({ id: c.id, name: c.cu?.customer_name ?? '' })}>📱 Customer app</button></div>
         </div>)}
       </div> })}
   </div>
