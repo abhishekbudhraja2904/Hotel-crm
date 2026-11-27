@@ -4,10 +4,12 @@ import { useSettings, Tile } from '../lib/settings'
 import LowStock from './LowStock'
 import NotDoingWork from './NotDoingWork'
 import Overview from './Overview'
+import FollowupWindow from './FollowupWindow'
+import { useState } from 'react'
 import InquiryBar, { useMoney } from './Progress'
 import { fmtDate, isoDate } from '../lib/dates'
 export default function Dashboard({ me, go }: { me?: any; go?: (tab: string, filter?: string) => void }) {
-  const { tiles, stages } = useSettings(), money = useMoney()
+  const { tiles, stages } = useSettings(), money = useMoney(), [fuWin, setFuWin] = useState<'' | 'late' | 'today'>('')
   const canInv = useQuery({ queryKey: ['inventory', 'can'], enabled: !!me?.active, queryFn: async () => !!(await supabase.rpc('can_update_inventory')).data })
   const latest = useQuery({ queryKey: ['inquiries', 'latest'], queryFn: async () => {
     const { data, error } = await supabase.from('inquiries').select('id,inquiry_number,sales_stage,updated_at,dispatched_at,packing_no,customers(customer_name,phone_number)').is('archived_at', null).order('updated_at', { ascending: false }).limit(10); if (error) throw error; return data as any[] } })
@@ -43,7 +45,8 @@ export default function Dashboard({ me, go }: { me?: any; go?: (tab: string, fil
   const rows = Object.entries(counts).sort((a, b) => b[1] - a[1])
   return <>
     {isAdmin && <NotDoingWork go={go} />}
-    {(me?.role === 'admin' || me?.role === 'sales') && go && <Overview me={me} go={go} />}
+    {(me?.role === 'admin' || me?.role === 'sales') && go && <Overview me={me} go={go} onFollowups={setFuWin} />}
+    {fuWin && <FollowupWindow me={me} start={fuWin} onClose={() => setFuWin('')} />}
     <LowStock detail={isAdmin || !!canInv.data} />
     <div className="stats">{cards.map(([k, v]) => <div className="stat" key={k}><b>{v}</b><span className="muted">{k}</span></div>)}</div>
     {isAdmin && pend.data && pend.data.length > 0 && (() => { const today = isoDate()

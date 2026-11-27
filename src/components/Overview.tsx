@@ -14,7 +14,7 @@ function Tile({ n, label, tone, onClick }: { n: number | null | undefined; label
 const Sec = ({ t }: { t: string }) => <div className="muted" style={{ fontWeight: 600, margin: '14px 0 6px' }}>{t}</div>
 
 // Whole-company overview for the admin; the sales person sees the same for their own clients. Counts only, no money.
-export default function Overview({ me, go }: { me: any; go: Go }) {
+export default function Overview({ me, go, onFollowups }: { me: any; go: Go; onFollowups?: (which: 'late' | 'today') => void }) {
   const isAdmin = me?.role === 'admin'
   const { data, error } = useQuery({ queryKey: ['overview'], refetchInterval: 60000, queryFn: async () => { const { data, error } = await supabase.rpc('dashboard_overview'); if (error) throw error; return data as any } })
   if (error) return <p className="msg">{(error as any).message}</p>
@@ -27,7 +27,7 @@ export default function Overview({ me, go }: { me: any; go: Go }) {
     <Sec t="Needs attention now" />
     <div className="stats">
       <Tile n={A.not_attended} label="Inquiries not attended" tone="red" onClick={() => go('inq', 'notatt')} />
-      <Tile n={A.fu_overdue} label="Follow-ups overdue" tone="red" onClick={() => go('inq', 'late')} />
+      <Tile n={A.fu_overdue} label="Follow-ups overdue" tone="red" onClick={() => (onFollowups ? onFollowups('late') : go('inq', 'late'))} />
       <Tile n={A.not_ack} label="Work not acknowledged" tone="red" onClick={() => go('after', 'inst')} />
       <Tile n={A.packing_late} label="Packing late" tone="red" onClick={isAdmin ? () => go('inv', 'pack') : undefined} />
       <Tile n={A.pay_pending} label="Payment pending, dispatched" tone="amber" onClick={isAdmin ? toPay : undefined} />
@@ -44,7 +44,7 @@ export default function Overview({ me, go }: { me: any; go: Go }) {
       <div className="muted"><a onClick={() => go('inq', 'temp:Hot')}>🔥 Hot {S.hot}</a> · <a onClick={() => go('inq', 'temp:Warm')}>🌤 Warm {S.warm}</a> · <a onClick={() => go('inq', 'temp:Cold')}>❄️ Cold {S.cold}</a> · <a onClick={() => go('inq', 'temp:None')}>No date {S.nodate}</a></div>
       <div className="row tapx" onClick={() => go('inq')}><span>New today</span><b>{S.new_today}</b></div>
       <div className="row tapx" onClick={() => go('inq', 'stage:Quotation Sent')}><span>Quotations sent, waiting</span><b>{S.quote_wait}</b></div>
-      <div className="row tapx" onClick={() => go('inq', 'today')}><span>Follow-ups due today</span><b>{S.fu_today}</b></div>
+      <div className="row tapx" onClick={() => (onFollowups ? onFollowups('today') : go('inq', 'today'))}><span>Follow-ups due today</span><b>{S.fu_today}</b></div>
       {stages.length > 0 && <div className="muted" style={{ marginTop: 4 }}>By stage: {stages.map(([k, v], i) => <span key={k}>{i > 0 && ' · '}<a onClick={() => go('inq', 'stage:' + k)}>{k} {v}</a></span>)}</div>}
     </div>
 

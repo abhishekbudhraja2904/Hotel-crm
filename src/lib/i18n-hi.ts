@@ -1,5 +1,9 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+"All due": "सब बाकी",
+"Nothing due. 🎉": "कुछ बाकी नहीं। 🎉",
+"No follow-ups done yet.": "अभी कोई फॉलो-अप नहीं हुआ।",
+"Close ✕": "बंद करें ✕",
 "Blocked for": "किसके लिए ब्लॉक",
 "No open orders found.": "कोई खुला ऑर्डर नहीं मिला।",
 "🙋 Myself (self packing)": "🙋 मैं खुद (खुद पैकिंग)",
