@@ -32,7 +32,7 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
   const isAdmin = me.role === 'admin'
   const { data: emps = [] } = useQuery({ queryKey: ['employees'], queryFn: async () => (await supabase.from('employees').select('id,employee_name').eq('active', true).in('role', ['admin', 'sales'])).data ?? [] })
   const [view, setView] = useState<'list' | 'old'>(startFilter === 'old' ? 'old' : 'list'), [reorderFor, setReorderFor] = useState<any>(null)
-  const [emp, setEmp] = useState(startFilter.startsWith('emp:') ? startFilter.slice(4) : ''), [tf, setTf] = useState(startFilter.startsWith('temp:') ? startFilter.slice(5) : ''), [att, setAtt] = useState(startFilter === 'notatt' ? '1' : ''), [fuF, setFuF] = useState(['late', 'due', 'today', 'later', 'none'].includes(startFilter) ? startFilter : startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), [openId, setOpenId] = useState(''), [newOnly, setNewOnly] = useState(startFilter === 'newtoday'), cfg = useSettings()
+  const [emp, setEmp] = useState(startFilter.startsWith('emp:') ? startFilter.slice(4) : ''), [tf, setTf] = useState(startFilter.startsWith('temp:') ? startFilter.slice(5) : ''), [att, setAtt] = useState(startFilter === 'notatt' ? '1' : ''), [fuF, setFuF] = useState(['late', 'due', 'today', 'later', 'none'].includes(startFilter) ? startFilter : startFu ? 'due' : ''), [notesFor, setNotesFor] = useState<any>(null), [openId, setOpenId] = useState(''), [newOnly, setNewOnly] = useState(startFilter === 'newtoday'), [hotel, setHotel] = useState(false), cfg = useSettings()
   async function setNeeded(r: any, v: string) { const { error } = await supabase.from('inquiries').update({ needed_by: v || null }).eq('id', r.id); if (error) setMsg(error.message); qc.invalidateQueries({ queryKey: ['inquiries'] }) }
   const pendFu = useQuery({ queryKey: ['followups', 'pending'], queryFn: async () => { const m = new Map<string, any>(); for (const d of ((await supabase.from('followups').select('id,inquiry_id,assigned_to,followup_type,scheduled_at,notes,updated_at').eq('status', 'Pending').order('scheduled_at').limit(1000)).data ?? []) as any[]) if (!m.has(d.inquiry_id)) m.set(d.inquiry_id, d); return m } })
   const fuState = (id: string) => { const f = pendFu.data?.get(id); if (!f) return 'none'; const t = +new Date(f.scheduled_at); return t < Date.now() ? 'late' : t <= new Date().setHours(23, 59, 59, 999) ? 'today' : 'later' }
@@ -42,7 +42,7 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
     queryKey: ['inquiries'],
     queryFn: async () => {
       const { data, error } = await supabase.from('inquiries')
-        .select('id,attended_at,created_at,needed_by,customer_id,inquiry_source,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number,city),inquiry_items(product_name_snapshot,quantity),assigned:employees!assigned_to(employee_name)')
+        .select('id,attended_at,created_at,needed_by,customer_id,inquiry_source,inquiry_number,assigned_to,inquiry_title,sales_stage,priority,inquiry_date,next_followup_at,updated_at,lost_reason,lost_note,packing_no,dispatched_at,customers(customer_name,phone_number,city),inquiry_items(product_name_snapshot,quantity,products(product_category)),assigned:employees!assigned_to(employee_name)')
         .is('archived_at', null).order('created_at', { ascending: false }).limit(200)
       if (error) throw error
       return data
@@ -51,8 +51,10 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
   // Latest note on each inquiry (shown on the board card)
   const latestNote = useQuery({ queryKey: ['inquiries', 'notes-latest'], queryFn: async () => { const m = new Map<string, any>(); for (const n of ((await supabase.from('inquiry_notes').select('inquiry_id,body,created_at,author:employees!created_by(employee_name)').order('created_at', { ascending: false }).limit(1500)).data ?? []) as any[]) if (!m.has(n.inquiry_id)) m.set(n.inquiry_id, n); return m } })
   const ATT_HOURS = 4
+  // Hotel lock inquiry = at least one item from a "hotel lock" product category (RFID Hotel Locks, Hotel Lock Software)
+  const isHotel = (r: any) => (r.inquiry_items ?? []).some((i: any) => { const p = Array.isArray(i.products) ? i.products[0] : i.products; return /hotel lock/i.test(p?.product_category ?? '') })
   const notAtt = (r: any) => !r.attended_at && !['Order Confirmed', 'Lost'].includes(r.sales_stage) && Date.now() - new Date(r.created_at).getTime() > ATT_HOURS * 3600000
-  const baseRows = data.filter((r: any) => !r.dispatched_at && (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!newOnly || +new Date(r.created_at) >= new Date().setHours(0, 0, 0, 0)) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
+  const baseRows = data.filter((r: any) => !r.dispatched_at && (!att || notAtt(r)) && (!fuF || (fuF === 'due' ? ['late', 'today'].includes(fuState(r.id)) : fuState(r.id) === fuF)) && (!hotel || isHotel(r)) && (!newOnly || +new Date(r.created_at) >= new Date().setHours(0, 0, 0, 0)) && (!emp || r.assigned_to === emp) && (!tf || tempOf(r.needed_by, cfg.tempHotDays, cfg.tempWarmDays) === tf) &&
     JSON.stringify(r).toLowerCase().includes(q.toLowerCase()))
   const rows = stage ? baseRows.filter((r: any) => r.sales_stage === stage) : baseRows
   const colsAll = [...STAGES, ...[...new Set(data.map((r: any) => r.sales_stage))].filter((x: any) => !STAGES.includes(x))] as string[]
@@ -147,7 +149,7 @@ export default function Inquiries({ me, startFu = false, startFilter = '' }: { m
 
   return (
     <section>
-      {(me.role === 'admin' || me.role === 'sales') && <div className="bar"><button className={view === 'list' ? 'primary' : ''} onClick={() => setView('list')}>Inquiries</button><button className={view === 'old' ? 'primary' : ''} onClick={() => setView('old')}>Old customers</button></div>}
+      {(me.role === 'admin' || me.role === 'sales') && <div className="bar"><button className={view === 'list' && !hotel ? 'primary' : ''} onClick={() => { setView('list'); setHotel(false) }}>Inquiries</button><button className={view === 'list' && hotel ? 'primary' : ''} onClick={() => { setView('list'); setHotel(true) }}>🏨 Hotel locks</button><button className={view === 'old' ? 'primary' : ''} onClick={() => setView('old')}>Old customers</button></div>}
       {view === 'list' ? <>
       <div className="bar">
         <input placeholder="Search inquiries…" value={q} onChange={(e) => setQ(e.target.value)} />

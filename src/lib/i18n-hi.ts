@@ -1,5 +1,6 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+  "🏨 Hotel locks": "🏨 होटल लॉक",
   "+ Add old customer": "+ पुराना ग्राहक जोड़ें",
   "Add old customer": "पुराना ग्राहक जोड़ें",
   "Save old customer": "पुराना ग्राहक सेव करें",
