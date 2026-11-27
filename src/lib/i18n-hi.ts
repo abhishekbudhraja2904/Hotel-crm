@@ -1,5 +1,6 @@
 // Hindi translations, matched on the exact English text shown on screen. Generated list; edit values freely.
 const HI: Record<string, string> = {
+  '🔥 Hot · 🌤 Warm · ❄️ Cold, by the date the customer needs it. Hottest first in each column.': '🔥 गर्म · 🌤 गुनगुना · ❄️ ठंडा — ग्राहक को जिस तारीख तक चाहिए उसके अनुसार। हर कॉलम में सबसे गर्म ऊपर।',
 "Drop here": "यहाँ छोड़ें",
 "No note yet": "अभी कोई नोट नहीं",
 "All due": "सब बाकी",
